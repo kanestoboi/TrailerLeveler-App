@@ -2,26 +2,45 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue/flutter_blue.dart';
 import 'dart:async';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:trailer_leveler_app/utilities/map.dart';
 
+import 'package:collection/collection.dart'; // You have to add this manually, for some reason it cannot be added automatically
 import 'dart:math';
 
+const int _MPU6050MaxValue = 32767;
+const int _MPU6050MinValue = -32768;
+const int _ADXL355MaxValue = 262143;
+const int _ADXL355MinValue = -262144;
+
+const int _ADXL355DataLength = 12;
+const int _MPU6050DataLength = 6;
+
+// ignore: non_constant_identifier_names
+const double _RAD_TO_DEG = 57.296;
+// ignore: non_constant_identifier_names
+const double _PI = 3.14;
 FlutterBlue flutterBlue = FlutterBlue.instance;
 
 // ignore: constant_identifier_names
 const String ACCELEROMETER_SERVICE_UUID =
     "76491400-7DD9-11ED-A1EB-0242AC120002";
 // ignore: constant_identifier_names
-const String ACCELEROMETER_CHARACTERISTIC_UUID =
+const String ADXL355_ACCELEROMETER_CHARACTERISTIC_UUID =
     "76491401-7DD9-11ED-A1EB-0242AC120002";
+// ignore: constant_identifier_names
+const String MPU6050_ACCELEROMETER_CHARACTERISTIC_UUID =
+    "76491402-7DD9-11ED-A1EB-0242AC120002";
+// ignore: constant_identifier_names
+const String UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
+// ignore: constant_identifier_names
+const String UART_CHARACTERISTIC_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
 
-double x = 0;
-double y = 0;
-double z = 0.0;
 int xoutput = 0;
 int youtput = 0;
 int zoutput = 0;
-int minVal = -262144;
-int maxVal = 262143;
+double x = 0;
+double y = 0;
+double z = 0;
 
 // ignore: non_constant_identifier_names
 double RAD_TO_DEG = 57.296;
@@ -46,22 +65,19 @@ class BluetoothDevices extends StatefulWidget {
 class _BluetoothDevicesState extends State<BluetoothDevices> {
   final _devices = <BluetoothDevice>[];
 
-  String one = "0";
-  String two = "0";
-
   @override
   dispose() async {
     super.dispose();
   }
 
-  Widget _buildList() {
+  Widget _buildFindDevicesList() {
     return ListView.builder(
         padding: const EdgeInsets.all(16.0),
         itemCount: _devices.length,
-        itemBuilder: (context, item) => _buildRow(_devices[item]));
+        itemBuilder: (context, item) => _buildDeviceRow(_devices[item]));
   }
 
-  Widget _buildRow(BluetoothDevice device) {
+  Widget _buildDeviceRow(BluetoothDevice device) {
     return ListTile(
       title: Text(device.name + " " + device.id.toString()),
       trailing: const Text("Connect"),
@@ -78,6 +94,10 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
   @override
   Widget build(BuildContext context) {
+    return _buildFindDevicesPage(context);
+  }
+
+  Scaffold _buildFindDevicesPage(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Discover Devices'), actions: <Widget>[
         IconButton(
@@ -87,7 +107,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
           },
         ),
       ]),
-      body: _buildList(),
+      body: _buildFindDevicesList(),
       floatingActionButton: StreamBuilder<bool>(
         stream: FlutterBlue.instance.isScanning,
         initialData: false,
@@ -154,21 +174,30 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
     List<BluetoothService> services = await device.discoverServices();
 
-    BluetoothCharacteristic? readCharacteristic;
+    BluetoothCharacteristic? accelerationDataCharacteristic;
 
-    for (BluetoothService service in services) {
-      if (service.uuid == Guid(ACCELEROMETER_SERVICE_UUID)) {
-        List<BluetoothCharacteristic> characteristics = service.characteristics;
+    BluetoothService? accelerometerService = services.firstWhereOrNull(
+        (service) => service.uuid == Guid(ACCELEROMETER_SERVICE_UUID));
 
-        for (BluetoothCharacteristic characteristic in characteristics) {
-          if (characteristic.uuid == Guid(ACCELEROMETER_CHARACTERISTIC_UUID)) {
-            readCharacteristic = characteristic;
-          }
-        }
-      }
+    accelerometerService ??= services
+        .firstWhereOrNull((service) => service.uuid == Guid(UART_SERVICE_UUID));
+
+    if (accelerometerService == null) {
+      print("NO Service Found");
+    } else {
+      print("Service found");
     }
 
-    if (readCharacteristic == null) {
+    accelerationDataCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ADXL355_ACCELEROMETER_CHARACTERISTIC_UUID));
+
+    accelerationDataCharacteristic ??= accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid == Guid(UART_CHARACTERISTIC_UUID));
+
+    if (accelerationDataCharacteristic == null) {
       print("Not a trailer leveller device");
 
       Fluttertoast.showToast(
@@ -176,7 +205,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.CENTER,
           timeInSecForIosWeb: 1,
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.black38,
           textColor: Colors.white,
           fontSize: 16.0);
 
@@ -185,10 +214,10 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       return;
     }
 
-    await readCharacteristic.setNotifyValue(true);
+    await accelerationDataCharacteristic.setNotifyValue(true);
 
-    var sub1 = readCharacteristic.value.listen((value) async {
-      if (value.length == 12) {
+    accelerationDataCharacteristic.value.listen((value) async {
+      if (value.length == _ADXL355DataLength) {
         int accX = (value[3] << 24 | value[2] << 16 | value[1] << 8 | value[0]);
         int accY = (value[7] << 24 | value[6] << 16 | value[5] << 8 | value[4]);
         int accZ =
@@ -219,20 +248,65 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
         youtput = (0.9896 * youtput + 0.01042 * accY).round();
         zoutput = (0.9896 * zoutput + 0.01042 * accZ).round();
 
-        double xAng = map(xoutput, minVal, maxVal, -90, 90);
-        double yAng = map(youtput, minVal, maxVal, -90, 90);
-        double zAng = map(zoutput, minVal, maxVal, -90, 90);
+        double xAng = map(accX, _ADXL355MinValue, _ADXL355MaxValue, -90, 90);
+        double yAng = map(accY, _ADXL355MinValue, _ADXL355MaxValue, -90, 90);
+        double zAng = map(accZ, _ADXL355MinValue, _ADXL355MaxValue, -90, 90);
 
         //print(
         //"x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
 
-        x = RAD_TO_DEG * (atan2(-yAng, -zAng) + PI);
-        y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
-        z = RAD_TO_DEG * (atan2(-yAng, -xAng) + PI);
+        double x = _RAD_TO_DEG * (atan2(-yAng, -zAng) + _PI);
+        double y = _RAD_TO_DEG * (atan2(-xAng, -zAng) + _PI);
+        double z = _RAD_TO_DEG * (atan2(-yAng, -xAng) + _PI);
 
         var obj = {"xAngle": x, "yAngle": y, "zAngle": z};
 
-        //print("x: $x, y: $y, z: $z");
+        //_streamController.sink.add(obj);
+      } else if (value.length == _MPU6050DataLength) {
+        int accX = (value[0] << 8 | value[1]);
+        int accY = (value[2] << 8 | value[3]);
+        int accZ = (value[4] << 8 | value[5]);
+
+        int maskedN = (value[0] & (1 << 7));
+        int thebit = maskedN >> 7;
+
+        if (thebit == 1) {
+          accX = accX | 0xFFFFFFFFFFFF0000;
+        }
+
+        maskedN = (value[2] & (1 << 7));
+        thebit = maskedN >> 7;
+
+        if (thebit == 1) {
+          accY = accY | 0xFFFFFFFFFFFF0000;
+        }
+
+        maskedN = (value[4] & (1 << 7));
+        thebit = maskedN >> 7;
+
+        if (thebit == 1) {
+          accZ = accZ | 0xFFFFFFFFFFFF0000;
+        }
+
+        xoutput = (0.9896 * xoutput + 0.0104 * accX).round();
+        youtput = (0.9896 * youtput + 0.0104 * accY).round();
+        zoutput = (0.9896 * zoutput + 0.0104 * accZ).round();
+
+        const int _MPU6050MaxValue = 32767;
+        const int _MPU6050MinValue = -32768;
+
+        double xAng = map(xoutput, _MPU6050MinValue, _MPU6050MaxValue, -90, 90);
+        double yAng = map(youtput, _MPU6050MinValue, _MPU6050MaxValue, -90, 90);
+        double zAng = map(zoutput, _MPU6050MinValue, _MPU6050MaxValue, -90, 90);
+
+        print(
+            "x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
+
+        double x = _RAD_TO_DEG * (atan2(-yAng, -zAng) + _PI);
+        double y = _RAD_TO_DEG * (atan2(-xAng, -zAng) + _PI);
+        double z = _RAD_TO_DEG * (atan2(-yAng, -xAng) + _PI);
+
+        var obj = {"xAngle": x, "yAngle": y, "zAngle": z};
 
         _streamController.sink.add(obj);
       }
@@ -240,8 +314,4 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
     Navigator.pop(context, stream);
   }
-}
-
-double map(int value, int low1, int high1, int low2, int high2) {
-  return low2 + ((high2 - low2) * (value - low1) / (high1 - low1));
 }
