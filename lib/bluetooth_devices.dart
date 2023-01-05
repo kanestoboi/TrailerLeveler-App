@@ -68,6 +68,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
   @override
   dispose() async {
     super.dispose();
+    FlutterBlue.instance.stopScan();
   }
 
   Widget _buildFindDevicesList() {
@@ -244,9 +245,9 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
           accZ = accZ | 0xFFFFFFFFFF000000;
         }
 
-        xoutput = (0.9896 * xoutput + 0.01042 * accX).round();
-        youtput = (0.9896 * youtput + 0.01042 * accY).round();
-        zoutput = (0.9896 * zoutput + 0.01042 * accZ).round();
+        xoutput = (0.9896 * xoutput + 0.0104 * accX).round();
+        youtput = (0.9896 * youtput + 0.0104 * accY).round();
+        zoutput = (0.9896 * zoutput + 0.0104 * accZ).round();
 
         double xAng = map(accX, _ADXL355MinValue, _ADXL355MaxValue, -90, 90);
         double yAng = map(accY, _ADXL355MinValue, _ADXL355MaxValue, -90, 90);
@@ -261,7 +262,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
         var obj = {"xAngle": x, "yAngle": y, "zAngle": z};
 
-        //_streamController.sink.add(obj);
+        _streamController.sink.add(obj);
       } else if (value.length == _MPU6050DataLength) {
         int accX = (value[0] << 8 | value[1]);
         int accY = (value[2] << 8 | value[3]);
