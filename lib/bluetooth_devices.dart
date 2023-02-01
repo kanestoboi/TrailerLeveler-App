@@ -196,6 +196,11 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
     accelerationDataCharacteristic ??= accelerometerService?.characteristics
         .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(MPU6050_ACCELEROMETER_CHARACTERISTIC_UUID));
+
+    accelerationDataCharacteristic ??= accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
             characteristic.uuid == Guid(UART_CHARACTERISTIC_UUID));
 
     if (accelerationDataCharacteristic == null) {
