@@ -2,12 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:trailer_leveler_app/bluetooth_devices.dart';
-import 'package:flutter_blue/flutter_blue.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
-
-FlutterBlue flutterBlue = FlutterBlue.instance;
 
 class AnglesPage extends StatefulWidget {
   const AnglesPage({Key? key}) : super(key: key);

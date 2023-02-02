@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_blue/flutter_blue.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'dart:async';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:trailer_leveler_app/utilities/map.dart';
@@ -19,7 +19,7 @@ const int _MPU6050DataLength = 6;
 const double _RAD_TO_DEG = 57.296;
 // ignore: non_constant_identifier_names
 const double _PI = 3.14;
-FlutterBlue flutterBlue = FlutterBlue.instance;
+FlutterBluePlus flutterBlue = FlutterBluePlus.instance;
 
 // ignore: constant_identifier_names
 const String ACCELEROMETER_SERVICE_UUID =
@@ -68,7 +68,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
   @override
   dispose() async {
     super.dispose();
-    FlutterBlue.instance.stopScan();
+    FlutterBluePlus.instance.stopScan();
   }
 
   Widget _buildFindDevicesList() {
@@ -80,7 +80,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
   Widget _buildDeviceRow(BluetoothDevice device) {
     return ListTile(
-      title: Text(device.name + " " + device.id.toString()),
+      title: Text(device.name),
       trailing: const Text("Connect"),
       onTap: () => connectToDevice(device),
     );
@@ -110,7 +110,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       ]),
       body: _buildFindDevicesList(),
       floatingActionButton: StreamBuilder<bool>(
-        stream: FlutterBlue.instance.isScanning,
+        stream: FlutterBluePlus.instance.isScanning,
         initialData: false,
         builder: (BuildContext context, AsyncSnapshot snapshot) {
           if (snapshot.data) {
@@ -129,7 +129,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
   }
 
   void stopScanPressed() {
-    FlutterBlue.instance.stopScan();
+    FlutterBluePlus.instance.stopScan();
   }
 
   void refreshPressed() {
@@ -151,7 +151,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
     });
 
     print("starting scan");
-    FlutterBlue.instance.startScan(timeout: const Duration(seconds: 8));
+    FlutterBluePlus.instance.startScan(timeout: const Duration(seconds: 8));
   }
 
   Future<void> connectToDevice(BluetoothDevice device) async {
