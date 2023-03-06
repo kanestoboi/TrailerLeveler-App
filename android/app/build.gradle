@@ -32,7 +32,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    compileSdkVersion flutter.compileSdkVersion
+    compileSdkVersion 33
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -52,8 +52,8 @@ android {
         applicationId "com.stoboi.trailer_leveler_app"
         minSdkVersion 19
         targetSdkVersion 33
-        versionCode 1
-        versionName '0.1'
+        versionCode 3
+        versionName '0.3'
     }
 
     signingConfigs {
@@ -69,7 +69,6 @@ android {
            signingConfig signingConfigs.release
        }
    }
-
 }
 
 flutter {
