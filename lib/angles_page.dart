@@ -118,7 +118,7 @@ class PageState extends State<AnglesPage> {
               padding: const EdgeInsets.all(30.0),
               child: Center(
                   child: Transform.rotate(
-                      angle: pi / 180 * (_yAngle - _yAngleCalibration),
+                      angle: pi / 180 * (_yAngle - _yAngleCalibration) * -1,
                       child:
                           Image.asset('images/camper_side.png', width: 150))),
             ),
