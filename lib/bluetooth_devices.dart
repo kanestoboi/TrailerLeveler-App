@@ -80,7 +80,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
   Widget _buildDeviceRow(BluetoothDevice device) {
     return ListTile(
-      title: Text(device.name + " " + device.id.toString()),
+      title: Text(device.name),
       trailing: const Text("Connect"),
       onTap: () => connectToDevice(device),
     );
@@ -269,25 +269,25 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
         _streamController.sink.add(obj);
       } else if (value.length == _MPU6050DataLength) {
-        int accX = (value[0] << 8 | value[1]);
-        int accY = (value[2] << 8 | value[3]);
-        int accZ = (value[4] << 8 | value[5]);
+        int accX = (value[1] << 8 | value[0]);
+        int accY = (value[3] << 8 | value[2]);
+        int accZ = (value[5] << 8 | value[4]);
 
-        int maskedN = (value[0] & (1 << 7));
+        int maskedN = (value[1] & (1 << 7));
         int thebit = maskedN >> 7;
 
         if (thebit == 1) {
           accX = accX | 0xFFFFFFFFFFFF0000;
         }
 
-        maskedN = (value[2] & (1 << 7));
+        maskedN = (value[3] & (1 << 7));
         thebit = maskedN >> 7;
 
         if (thebit == 1) {
           accY = accY | 0xFFFFFFFFFFFF0000;
         }
 
-        maskedN = (value[4] & (1 << 7));
+        maskedN = (value[5] & (1 << 7));
         thebit = maskedN >> 7;
 
         if (thebit == 1) {
@@ -297,9 +297,6 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
         xoutput = (0.9896 * xoutput + 0.0104 * accX).round();
         youtput = (0.9896 * youtput + 0.0104 * accY).round();
         zoutput = (0.9896 * zoutput + 0.0104 * accZ).round();
-
-        const int _MPU6050MaxValue = 32767;
-        const int _MPU6050MinValue = -32768;
 
         double xAng = map(xoutput, _MPU6050MinValue, _MPU6050MaxValue, -90, 90);
         double yAng = map(youtput, _MPU6050MinValue, _MPU6050MaxValue, -90, 90);
