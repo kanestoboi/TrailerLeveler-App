@@ -52,8 +52,8 @@ android {
         applicationId "com.stoboi.trailer_leveler_app"
         minSdkVersion 19
         targetSdkVersion 33
-        versionCode 3
-        versionName '0.3'
+        versionCode 4
+        versionName '0.3.1'
     }
 
     signingConfigs {
@@ -66,7 +66,19 @@ android {
    }
    buildTypes {
        release {
-           signingConfig signingConfigs.release
+            signingConfig signingConfigs.release
+
+            // Enables code shrinking, obfuscation, and optimization for only
+            // your project's release build type.
+            minifyEnabled true
+
+            // Enables resource shrinking, which is performed by the
+            // Android Gradle plugin
+            shrinkResources true
+
+            // Includes the default ProGuard rules files that are packaged with
+            // the Android Gradle plugin. 
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
        }
    }
 }
