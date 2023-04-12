@@ -3,6 +3,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'dart:async';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:trailer_leveler_app/utilities/map.dart';
+import 'package:trailer_leveler_app/app_data.dart';
 
 import 'package:collection/collection.dart'; // You have to add this manually, for some reason it cannot be added automatically
 import 'dart:math';
@@ -46,6 +47,14 @@ double z = 0;
 double RAD_TO_DEG = 57.296;
 // ignore: non_constant_identifier_names
 double PI = 3.14;
+
+class AngleMEasurement {
+  double xAngle;
+  double yAngle;
+  double zAngle;
+
+  AngleMEasurement(this.xAngle, this.yAngle, this.zAngle);
+}
 
 class BluetoothDevices extends StatefulWidget {
   const BluetoothDevices({Key? key, required this.title}) : super(key: key);
@@ -260,12 +269,18 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
         //print(
         //"x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
+        AngleMEasurement angles = calculateAnglesFromDeviceOrientation(
+            xAng, yAng, zAng, appData.deviceOrientation);
 
         double x = _RAD_TO_DEG * (atan2(-yAng, -zAng) + _PI);
         double y = _RAD_TO_DEG * (atan2(-xAng, -zAng) + _PI);
         double z = _RAD_TO_DEG * (atan2(-yAng, -xAng) + _PI);
 
-        var obj = {"xAngle": x, "yAngle": y, "zAngle": z};
+        var obj = {
+          "xAngle": angles.xAngle,
+          "yAngle": angles.yAngle,
+          "zAngle": angles.zAngle
+        };
 
         _streamController.sink.add(obj);
       } else if (value.length == _MPU6050DataLength) {
@@ -305,16 +320,78 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
         print(
             "x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
 
-        double x = _RAD_TO_DEG * (atan2(-yAng, -zAng) + _PI);
-        double y = _RAD_TO_DEG * (atan2(-xAng, -zAng) + _PI);
-        double z = _RAD_TO_DEG * (atan2(-yAng, -xAng) + _PI);
+        AngleMEasurement angles = calculateAnglesFromDeviceOrientation(
+            xAng, yAng, zAng, appData.deviceOrientation);
 
-        var obj = {"xAngle": x, "yAngle": y, "zAngle": z};
+        // double x = _RAD_TO_DEG * (atan2(-yAng, -zAng) + _PI);
+        // double y = _RAD_TO_DEG * (atan2(-xAng, -zAng) + _PI);
+        // double z = _RAD_TO_DEG * (atan2(-yAng, -xAng) + _PI);
+
+        var obj = {
+          "xAngle": angles.xAngle,
+          "yAngle": angles.yAngle,
+          "zAngle": angles.zAngle
+        };
 
         _streamController.sink.add(obj);
       }
     }, cancelOnError: true);
 
     Navigator.pop(context, stream);
+  }
+
+  AngleMEasurement calculateAnglesFromDeviceOrientation(
+      double angleX, double angleY, double angleZ, int orientation) {
+    AngleMEasurement angles = AngleMEasurement(0, 0, 0);
+
+    print(
+        "Calculating angle based off of orientation: ${appData.deviceOrientation}");
+
+    switch (orientation) {
+      case 1:
+        {
+          angles.xAngle = _RAD_TO_DEG * (atan2(angleZ, -angleY) + _PI);
+          angles.yAngle = _RAD_TO_DEG * (atan2(-angleX, -angleZ) + _PI);
+          angles.zAngle = _RAD_TO_DEG * (atan2(-angleZ, -angleX) + _PI);
+          break;
+        }
+      case 2:
+        {
+          angles.xAngle = _RAD_TO_DEG * (atan2(-angleY, -angleZ) + _PI);
+          angles.yAngle = _RAD_TO_DEG * (atan2(-angleX, angleY) + _PI);
+          angles.zAngle = _RAD_TO_DEG * (atan2(-angleY, -angleX) + _PI);
+          break;
+        }
+      case 3:
+        {
+          angles.xAngle = _RAD_TO_DEG * (atan2(-angleY, -angleX) + _PI);
+          angles.yAngle = _RAD_TO_DEG * (atan2(angleZ, angleY) + _PI);
+          angles.zAngle = _RAD_TO_DEG * (atan2(-angleY, angleZ) + _PI);
+          break;
+        }
+      case 4:
+        {
+          angles.xAngle = _RAD_TO_DEG * (atan2(-angleY, angleX) + _PI);
+          angles.yAngle = _RAD_TO_DEG * (atan2(-angleZ, angleY) + _PI);
+          angles.zAngle = _RAD_TO_DEG * (atan2(-angleY, -angleZ) + _PI);
+          break;
+        }
+      case 5:
+        {
+          angles.xAngle = _RAD_TO_DEG * (atan2(-angleY, angleZ) + _PI);
+          angles.yAngle = _RAD_TO_DEG * (atan2(angleX, angleY) + _PI);
+          angles.zAngle = _RAD_TO_DEG * (atan2(-angleY, angleX) + _PI);
+          break;
+        }
+      case 6:
+        {
+          angles.xAngle = _RAD_TO_DEG * (atan2(-angleZ, angleY) + _PI);
+          angles.yAngle = _RAD_TO_DEG * (atan2(-angleX, angleZ) + _PI);
+          angles.zAngle = _RAD_TO_DEG * (atan2(-angleZ, -angleX) + _PI);
+          break;
+        }
+    }
+
+    return angles;
   }
 }
