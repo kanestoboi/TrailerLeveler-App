@@ -5,6 +5,14 @@ import 'package:trailer_leveler_app/bluetooth_devices.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
+import 'package:trailer_leveler_app/app_data.dart';
+
+MaterialPageRoute bluetoothDevicesPageRoute = MaterialPageRoute(
+    builder: (BuildContext context) => const BluetoothDevices(
+          title: "devices",
+        ));
 
 class AnglesPage extends StatefulWidget {
   const AnglesPage({Key? key}) : super(key: key);
@@ -20,12 +28,14 @@ class PageState extends State<AnglesPage> {
   double _xAngle = 0.0;
   double _yAngle = 0.0;
   double _zAngle = 0.0;
+  double? _batteryLevel = null;
 
   double _caravanWidth = 2.4;
   double _caravanLength = 2.4;
 
   String downArrow = "\u2b07";
   String upArrow = "\u2b06";
+  String batterySymbol = "\u{1F50B}";
 
   String horizontalReference = 'right';
 
@@ -50,91 +60,100 @@ class PageState extends State<AnglesPage> {
     double zAngleSharedPreferences =
         _sharedPreferences.getDouble('zAngleCalibration') ?? 0;
 
+    int orientationSharedPreferences =
+        _sharedPreferences.getInt('deviceOrientation') ?? 1;
+
     _xAngleCalibration = xAngleSharedPreferences;
     _yAngleCalibration = yAngleSharedPreferences;
     _zAngleCalibration = zAngleSharedPreferences;
+
+    appData.deviceOrientation = orientationSharedPreferences;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: PreferredSize(
-            preferredSize: const Size(double.infinity, kToolbarHeight),
-            child: Builder(
-                builder: (context) => AppBar(
-                        title: const Text('Trailer Leveler'),
-                        actions: <Widget>[
-                          IconButton(
-                            icon: const Icon(Icons.add_link),
-                            onPressed: () async {
-                              MaterialPageRoute newRoute = MaterialPageRoute(
-                                  builder: (BuildContext context) =>
-                                      const BluetoothDevices(
-                                        title: "devices",
-                                      ));
+      appBar: PreferredSize(
+          preferredSize: const Size(double.infinity, kToolbarHeight),
+          child: Builder(
+              builder: (context) => AppBar(
+                      title: const Text('Trailer Leveler'),
+                      actions: <Widget>[
+                        getBatteryLevel(),
+                        IconButton(
+                          icon: const Icon(Icons.add_link),
+                          onPressed: () async {
+                            final result = await Navigator.of(context)
+                                .push(bluetoothDevicesPageRoute);
 
-                              final result =
-                                  await Navigator.of(context).push(newRoute);
+                            //print('content ${result}');
 
-                              //print('content ${result}');
-
-                              result.listen((value) {
-                                setState(() {
+                            result.listen((value) {
+                              setState(() {
+                                if (value['xAngle'] != null) {
                                   _xAngle = value['xAngle'];
+                                }
+                                if (value['yAngle'] != null) {
                                   _yAngle = value['yAngle'];
+                                }
+                                if (value['zAngle'] != null) {
                                   _zAngle = value['zAngle'];
-                                });
+                                }
+                                if (value['batteryLevel'] != null) {
+                                  _batteryLevel = value['batteryLevel'];
+                                  print("Battery LEvel angles: $_batteryLevel");
+                                }
                               });
-                            },
-                          ),
-                          PopupMenuButton<String>(
-                            onSelected: handleClick,
-                            itemBuilder: (BuildContext context) {
-                              return {'Calibrate', 'Set Caravan Dimensions'}
-                                  .map((String choice) {
-                                return PopupMenuItem<String>(
-                                  value: choice,
-                                  child: Text(choice),
-                                );
-                              }).toList();
-                            },
-                          ),
-                        ]))
+                            });
+                          },
+                        ),
+                        PopupMenuButton<String>(
+                          onSelected: handleClick,
+                          itemBuilder: (BuildContext context) {
+                            return {
+                              'Calibrate',
+                              'Set Caravan Dimensions',
+                              'Set Device Orientation'
+                            }.map((String choice) {
+                              return PopupMenuItem<String>(
+                                value: choice,
+                                child: Text(choice),
+                              );
+                            }).toList();
+                          },
+                        ),
+                      ]))
 
-            // StreamBuilder
-            ),
-        body: Center(
-            child: Column(
-          children: [
-            Center(
+          // StreamBuilder
+          ),
+      body: Center(
+          child: Column(
+        children: [
+          Center(
+              child: Transform.rotate(
+                  angle: pi / 180.0 * (_xAngle - _xAngleCalibration),
+                  child: Image.asset('images/camper_rear.png', width: 100))),
+          Row(children: <Widget>[
+            Expanded(child: getLeftHeightStringWidget()),
+            Expanded(child: getRightHeightStringWidget()),
+          ]),
+          Padding(
+            padding: const EdgeInsets.all(30.0),
+            child: Center(
                 child: Transform.rotate(
-                    angle: pi / 180.0 * (_xAngle - _xAngleCalibration),
-                    child: Image.asset('images/camper_rear.png', width: 100))),
-            Row(children: <Widget>[
-              Expanded(child: getLeftHeightStringWidget()),
-              Expanded(child: getRightHeightStringWidget()),
-            ]),
-            Padding(
-              padding: const EdgeInsets.all(30.0),
-              child: Center(
-                  child: Transform.rotate(
-                      angle: pi / 180 * (_yAngle - _yAngleCalibration) * -1,
-                      child:
-                          Image.asset('images/camper_side.png', width: 150))),
-            ),
-            Row(children: <Widget>[
-              Expanded(
-                  child: Padding(
-                padding: const EdgeInsets.fromLTRB(50.0, 0, 0, 0),
-                child: getJockyHeightWidget(),
-              )),
-            ])
-          ],
-        )),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {},
-          child: const Icon(Icons.add),
-        ));
+                    angle: pi / 180 * (_yAngle - _yAngleCalibration) * -1,
+                    child: Image.asset('images/camper_side.png', width: 150))),
+          ),
+          Row(children: <Widget>[
+            Expanded(
+                child: Padding(
+              padding: const EdgeInsets.fromLTRB(50.0, 0, 0, 0),
+              child: getJockyHeightWidget(),
+            )),
+          ]),
+        ],
+      )),
+    );
   }
 
   Widget getLeftHeightStringWidget() {
@@ -228,6 +247,27 @@ class PageState extends State<AnglesPage> {
     );
   }
 
+  Widget getBatteryLevel() {
+    var format = NumberFormat("###", "en_US");
+
+    String batteryLevelString;
+    if (_batteryLevel != null) {
+      batteryLevelString = "$batterySymbol ${format.format(_batteryLevel)}%";
+    } else {
+      batteryLevelString = "      ";
+    }
+
+    Color textColor = Colors.white;
+
+    return Center(
+        child: Text(
+      batteryLevelString,
+      textAlign: TextAlign.left,
+      style: TextStyle(
+          fontSize: 18, color: textColor, fontWeight: FontWeight.normal),
+    ));
+  }
+
   Future<void> handleClick(String value) async {
     switch (value) {
       case 'Calibrate':
@@ -245,6 +285,11 @@ class PageState extends State<AnglesPage> {
       case 'Set Caravan Dimensions':
         {
           await _showDimensionsDialog();
+          break;
+        }
+      case 'Set Device Orientation':
+        {
+          await _showDeviceOrientationDialog();
           break;
         }
     }
@@ -328,5 +373,257 @@ class PageState extends State<AnglesPage> {
         );
       },
     );
+  }
+
+  Future<void> _showDeviceOrientationDialog() async {
+    Color _colorContainer1 =
+        appData.deviceOrientation == 1 ? Colors.blue : Colors.white;
+    Color _colorContainer2 =
+        appData.deviceOrientation == 2 ? Colors.blue : Colors.white;
+    Color _colorContainer3 =
+        appData.deviceOrientation == 3 ? Colors.blue : Colors.white;
+    Color _colorContainer4 =
+        appData.deviceOrientation == 4 ? Colors.blue : Colors.white;
+    Color _colorContainer5 =
+        appData.deviceOrientation == 5 ? Colors.blue : Colors.white;
+    Color _colorContainer6 =
+        appData.deviceOrientation == 6 ? Colors.blue : Colors.white;
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return FractionallySizedBox(
+            widthFactor: 0.8,
+            heightFactor: 0.9,
+            child: Column(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  color: Colors.lightBlue,
+                  child: const Text(
+                    "Front Direction \u2B09",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      height: 1,
+                      fontSize: 30,
+                      color: Colors.white,
+                      decoration: TextDecoration.none,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  width: 400,
+                ),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Expanded(
+                        child: Material(
+                          child: InkWell(
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              color: _colorContainer1,
+                              child: Image.asset(
+                                  'images/device-orientation-1.png',
+                                  width: 100),
+                            ),
+                            onTap: () {
+                              handleDeviceOrientationSelection(1);
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Material(
+                          child: InkWell(
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              color: _colorContainer2,
+                              child: Image.asset(
+                                  'images/device-orientation-2.png',
+                                  width: 100),
+                            ),
+                            onTap: () {
+                              handleDeviceOrientationSelection(2);
+                              _colorContainer1 = Colors.white;
+                              _colorContainer2 = Colors.blue;
+                              setState(() {});
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Expanded(
+                        child: Material(
+                          child: InkWell(
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              color: _colorContainer3,
+                              child: Image.asset(
+                                  'images/device-orientation-3.png',
+                                  width: 100),
+                            ),
+                            onTap: () {
+                              handleDeviceOrientationSelection(3);
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Material(
+                          child: InkWell(
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              color: _colorContainer4,
+                              child: Image.asset(
+                                  'images/device-orientation-4.png',
+                                  width: 100),
+                            ),
+                            onTap: () {
+                              handleDeviceOrientationSelection(4);
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Expanded(
+                        child: Material(
+                          child: InkWell(
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              color: _colorContainer5,
+                              child: Image.asset(
+                                  'images/device-orientation-5.png',
+                                  width: 100),
+                            ),
+                            onTap: () {
+                              handleDeviceOrientationSelection(5);
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Material(
+                          child: InkWell(
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              color: _colorContainer6,
+                              child: Image.asset(
+                                  'images/device-orientation-6.png',
+                                  width: 100),
+                            ),
+                            onTap: () {
+                              handleDeviceOrientationSelection(6);
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  color: Colors.lightBlue,
+                  child: TextButton(
+                    style: ButtonStyle(
+                      foregroundColor:
+                          MaterialStateProperty.all<Color>(Colors.blue),
+                      textStyle:
+                          MaterialStateProperty.all<TextStyle>(const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        height: 1,
+                        fontSize: 30,
+                        color: Colors.white,
+                        decoration: TextDecoration.none,
+                      )),
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text(
+                      'Set Orientation',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        height: 1,
+                        fontSize: 26,
+                        color: Colors.white,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                  width: 400,
+                ),
+              ],
+            ));
+      },
+    );
+  }
+
+  void handleDeviceOrientationSelection(int selection) {
+    switch (selection) {
+      case 1:
+        {
+          print("Selection 1");
+          appData.deviceOrientation = 1;
+          break;
+        }
+      case 2:
+        {
+          print("Selection 2");
+          appData.deviceOrientation = 2;
+          break;
+        }
+      case 3:
+        {
+          print("Selection 3");
+          appData.deviceOrientation = 3;
+          break;
+        }
+      case 4:
+        {
+          print("Selection 4");
+          appData.deviceOrientation = 4;
+          break;
+        }
+      case 5:
+        {
+          print("Selection 5");
+          appData.deviceOrientation = 5;
+          break;
+        }
+      case 6:
+        {
+          print("Selection 6");
+          appData.deviceOrientation = 6;
+          break;
+        }
+    }
+    _sharedPreferences.setInt('deviceOrientation', selection);
+    Fluttertoast.showToast(
+        msg: "Orientation Changed",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0);
   }
 }

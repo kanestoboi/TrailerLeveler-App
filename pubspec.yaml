@@ -67,6 +67,13 @@ flutter:
   assets:
   - images/camper_rear.png
   - images/camper_side.png
+  - images/device-orientation-1.png
+  - images/device-orientation-2.png
+  - images/device-orientation-3.png
+  - images/device-orientation-4.png
+  - images/device-orientation-5.png
+  - images/device-orientation-6.png
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:
