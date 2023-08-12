@@ -26,11 +26,17 @@ FlutterBluePlus flutterBlue = FlutterBluePlus.instance;
 const String ACCELEROMETER_SERVICE_UUID =
     "76491400-7DD9-11ED-A1EB-0242AC120002";
 // ignore: constant_identifier_names
+const String BATTERY_LEVEL_SERVICE_UUID =
+    "0000180f-0000-1000-8000-00805f9b34fb";
+// ignore: constant_identifier_names
 const String ADXL355_ACCELEROMETER_CHARACTERISTIC_UUID =
     "76491401-7DD9-11ED-A1EB-0242AC120002";
 // ignore: constant_identifier_names
 const String MPU6050_ACCELEROMETER_CHARACTERISTIC_UUID =
     "76491402-7DD9-11ED-A1EB-0242AC120002";
+// ignore: constant_identifier_names
+const String BATTERY_LEVEL_CHARACTERISTIC_UUID =
+    "00002A19-0000-1000-8000-00805F9B34FB";
 // ignore: constant_identifier_names
 const String UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
 // ignore: constant_identifier_names
@@ -165,8 +171,11 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
   Future<void> connectToDevice(BluetoothDevice device) async {
     final _streamController = StreamController<Map<String, double>>();
+    final _batteryLevelStreamController = StreamController<Map<String, int>>();
 
     Stream<Map<String, double>> stream = _streamController.stream;
+    Stream<Map<String, int>> batteryLevelStreamController =
+        _batteryLevelStreamController.stream;
 
     await device
         .connect(autoConnect: false)
@@ -184,6 +193,10 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
     List<BluetoothService> services = await device.discoverServices();
 
+    services.forEach((element) {
+      print("uuid:" + element.uuid.toString());
+    });
+
     BluetoothCharacteristic? accelerationDataCharacteristic;
 
     BluetoothService? accelerometerService = services.firstWhereOrNull(
@@ -195,7 +208,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
     if (accelerometerService == null) {
       print("NO Service Found");
     } else {
-      print("Service found");
+      print("Accelerometer Service found");
     }
 
     accelerationDataCharacteristic = accelerometerService?.characteristics
@@ -317,8 +330,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
         double yAng = map(youtput, _MPU6050MinValue, _MPU6050MaxValue, -90, 90);
         double zAng = map(zoutput, _MPU6050MinValue, _MPU6050MaxValue, -90, 90);
 
-        print(
-            "x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
+        //print(            "x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
 
         AngleMEasurement angles = calculateAnglesFromDeviceOrientation(
             xAng, yAng, zAng, appData.deviceOrientation);
@@ -337,15 +349,50 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       }
     }, cancelOnError: true);
 
+    print("Looking for battery service");
+    BluetoothService? batterLevelService = services.firstWhereOrNull(
+        (service) => service.uuid == Guid(BATTERY_LEVEL_SERVICE_UUID));
+
+    if (batterLevelService == null) {
+      print("NO Service Found");
+    } else {
+      print("Battery Service found");
+    }
+
+    var characteristics = batterLevelService?.characteristics;
+    for (BluetoothCharacteristic c in characteristics!) {
+      print(c.uuid);
+    }
+
+    BluetoothCharacteristic? batterLevelCharacteristic =
+        batterLevelService?.characteristics.firstWhereOrNull((characteristic) =>
+            characteristic.uuid == Guid(BATTERY_LEVEL_CHARACTERISTIC_UUID));
+
+    if (batterLevelCharacteristic != null) {
+      await batterLevelCharacteristic.setNotifyValue(true);
+
+      var batlevel = await batterLevelCharacteristic.read();
+      print("Battery Level read(): $batlevel");
+
+      batterLevelCharacteristic.value.listen((value) async {
+        print("Battery Level: printint");
+        print("Battery Level: ${value[0]}");
+        double bat = value[0] * 1.0;
+        var obj = {
+          "batteryLevel": bat,
+        };
+        _streamController.sink.add(obj);
+      });
+    } else {
+      print("Characteristic not found!!!");
+    }
+
     Navigator.pop(context, stream);
   }
 
   AngleMEasurement calculateAnglesFromDeviceOrientation(
       double angleX, double angleY, double angleZ, int orientation) {
     AngleMEasurement angles = AngleMEasurement(0, 0, 0);
-
-    print(
-        "Calculating angle based off of orientation: ${appData.deviceOrientation}");
 
     switch (orientation) {
       case 1:
