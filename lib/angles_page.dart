@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:trailer_leveler_app/bluetooth_devices.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
@@ -28,10 +29,10 @@ class PageState extends State<AnglesPage> {
   double _xAngle = 0.0;
   double _yAngle = 0.0;
   double _zAngle = 0.0;
-  double? _batteryLevel = null;
+  double? _batteryLevel;
 
-  double _caravanWidth = 2.4;
-  double _caravanLength = 2.4;
+  double _caravanWidth = 0.0001;
+  double _caravanLength = 0.0001;
 
   String downArrow = "\u2b07";
   String upArrow = "\u2b06";
@@ -45,10 +46,9 @@ class PageState extends State<AnglesPage> {
   @override
   void initState() {
     super.initState();
-    setupSharedPreferences();
   }
 
-  setupSharedPreferences() async {
+  Future<void> setupSharedPreferences() async {
     _sharedPreferences = await SharedPreferences.getInstance();
 
     double xAngleSharedPreferences =
@@ -60,6 +60,12 @@ class PageState extends State<AnglesPage> {
     double zAngleSharedPreferences =
         _sharedPreferences.getDouble('zAngleCalibration') ?? 0;
 
+    double _caravanWidthSharedPreferences =
+        _sharedPreferences.getDouble('caravanWidth') ?? 1.0;
+
+    double _caravanLengthSharedPreferences =
+        _sharedPreferences.getDouble('caravanLength') ?? 1.0;
+
     int orientationSharedPreferences =
         _sharedPreferences.getInt('deviceOrientation') ?? 1;
 
@@ -67,11 +73,24 @@ class PageState extends State<AnglesPage> {
     _yAngleCalibration = yAngleSharedPreferences;
     _zAngleCalibration = zAngleSharedPreferences;
 
+    _caravanWidth = _caravanWidthSharedPreferences;
+    _caravanLength = _caravanLengthSharedPreferences;
+
     appData.deviceOrientation = orientationSharedPreferences;
   }
 
   @override
   Widget build(BuildContext context) {
+    // Perform an action after the build is completed
+    SchedulerBinding.instance!.addPostFrameCallback((durarion) {
+      // setup the shared prefrences and then get the length and width stored
+      setupSharedPreferences().then((value) {
+        if (_caravanWidth == 0.0001 && _caravanLength == 0.0001) {
+          _showDimensionsDialog();
+        }
+      });
+    });
+
     return Scaffold(
       appBar: PreferredSize(
           preferredSize: const Size(double.infinity, kToolbarHeight),
@@ -79,34 +98,30 @@ class PageState extends State<AnglesPage> {
               builder: (context) => AppBar(
                       title: const Text('Trailer Leveler'),
                       actions: <Widget>[
-                        getBatteryLevel(),
+                        getBatteryLevelWidget(),
                         IconButton(
-                          icon: const Icon(Icons.add_link),
-                          onPressed: () async {
-                            final result = await Navigator.of(context)
-                                .push(bluetoothDevicesPageRoute);
+                            icon: const Icon(Icons.add_link),
+                            onPressed: () async {
+                              final result = await Navigator.of(context)
+                                  .push(bluetoothDevicesPageRoute);
 
-                            //print('content ${result}');
-
-                            result.listen((value) {
-                              setState(() {
-                                if (value['xAngle'] != null) {
-                                  _xAngle = value['xAngle'];
-                                }
-                                if (value['yAngle'] != null) {
-                                  _yAngle = value['yAngle'];
-                                }
-                                if (value['zAngle'] != null) {
-                                  _zAngle = value['zAngle'];
-                                }
-                                if (value['batteryLevel'] != null) {
-                                  _batteryLevel = value['batteryLevel'];
-                                  print("Battery LEvel angles: $_batteryLevel");
-                                }
+                              result.listen((value) {
+                                setState(() {
+                                  if (value['xAngle'] != null) {
+                                    _xAngle = value['xAngle'];
+                                  }
+                                  if (value['yAngle'] != null) {
+                                    _yAngle = value['yAngle'];
+                                  }
+                                  if (value['zAngle'] != null) {
+                                    _zAngle = value['zAngle'];
+                                  }
+                                  if (value['batteryLevel'] != null) {
+                                    _batteryLevel = value['batteryLevel'];
+                                  }
+                                });
                               });
-                            });
-                          },
-                        ),
+                            }),
                         PopupMenuButton<String>(
                           onSelected: handleClick,
                           itemBuilder: (BuildContext context) {
@@ -126,34 +141,38 @@ class PageState extends State<AnglesPage> {
 
           // StreamBuilder
           ),
-      body: Center(
-          child: Column(
-        children: [
-          Center(
-              child: Transform.rotate(
-                  angle: pi / 180.0 * (_xAngle - _xAngleCalibration),
-                  child: Image.asset('images/camper_rear.png', width: 100))),
-          Row(children: <Widget>[
-            Expanded(child: getLeftHeightStringWidget()),
-            Expanded(child: getRightHeightStringWidget()),
-          ]),
-          Padding(
-            padding: const EdgeInsets.all(30.0),
-            child: Center(
-                child: Transform.rotate(
-                    angle: pi / 180 * (_yAngle - _yAngleCalibration) * -1,
-                    child: Image.asset('images/camper_side.png', width: 150))),
-          ),
-          Row(children: <Widget>[
-            Expanded(
-                child: Padding(
-              padding: const EdgeInsets.fromLTRB(50.0, 0, 0, 0),
-              child: getJockyHeightWidget(),
-            )),
-          ]),
-        ],
-      )),
+      body: LevelIndicatorWidget(),
     );
+  }
+
+  Widget LevelIndicatorWidget() {
+    return Center(
+        child: Column(
+      children: [
+        Center(
+            child: Transform.rotate(
+                angle: pi / 180.0 * (_xAngle - _xAngleCalibration),
+                child: Image.asset('images/camper_rear.png', width: 100))),
+        Row(children: <Widget>[
+          Expanded(child: getLeftHeightStringWidget()),
+          Expanded(child: getRightHeightStringWidget()),
+        ]),
+        Padding(
+          padding: const EdgeInsets.all(30.0),
+          child: Center(
+              child: Transform.rotate(
+                  angle: pi / 180 * (_yAngle - _yAngleCalibration) * -1,
+                  child: Image.asset('images/camper_side.png', width: 150))),
+        ),
+        Row(children: <Widget>[
+          Expanded(
+              child: Padding(
+            padding: const EdgeInsets.fromLTRB(50.0, 0, 0, 0),
+            child: getJockyHeightWidget(),
+          )),
+        ]),
+      ],
+    ));
   }
 
   Widget getLeftHeightStringWidget() {
@@ -247,7 +266,7 @@ class PageState extends State<AnglesPage> {
     );
   }
 
-  Widget getBatteryLevel() {
+  Widget getBatteryLevelWidget() {
     var format = NumberFormat("###", "en_US");
 
     String batteryLevelString;
@@ -362,6 +381,9 @@ class PageState extends State<AnglesPage> {
                 try {
                   _caravanWidth = double.parse(_caravanWidthController.text);
                   _caravanLength = double.parse(_caravanLengthController.text);
+                  _sharedPreferences.setDouble('caravanWidth', _caravanWidth);
+                  _sharedPreferences.setDouble('caravanLength', _caravanLength);
+                  print("Set Length $_caravanLength \t width: $_caravanWidth");
                 } catch (e) {
                   return;
                 }
