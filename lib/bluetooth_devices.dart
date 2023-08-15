@@ -6,6 +6,7 @@ import 'package:trailer_leveler_app/utilities/map.dart';
 import 'package:trailer_leveler_app/app_data.dart';
 
 import 'package:collection/collection.dart'; // You have to add this manually, for some reason it cannot be added automatically
+
 import 'dart:math';
 
 const int _MPU6050MaxValue = 32767;
@@ -20,7 +21,6 @@ const int _MPU6050DataLength = 6;
 const double _RAD_TO_DEG = 57.296;
 // ignore: non_constant_identifier_names
 const double _PI = 3.14;
-FlutterBluePlus flutterBlue = FlutterBluePlus.instance;
 
 // ignore: constant_identifier_names
 const String ACCELEROMETER_SERVICE_UUID =
@@ -54,12 +54,12 @@ double RAD_TO_DEG = 57.296;
 // ignore: non_constant_identifier_names
 double PI = 3.14;
 
-class AngleMEasurement {
+class AngleMeasurement {
   double xAngle;
   double yAngle;
   double zAngle;
 
-  AngleMEasurement(this.xAngle, this.yAngle, this.zAngle);
+  AngleMeasurement(this.xAngle, this.yAngle, this.zAngle);
 }
 
 class BluetoothDevices extends StatefulWidget {
@@ -83,7 +83,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
   @override
   dispose() async {
     super.dispose();
-    FlutterBluePlus.instance.stopScan();
+    FlutterBluePlus.stopScan();
   }
 
   Widget _buildFindDevicesList() {
@@ -95,7 +95,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
   Widget _buildDeviceRow(BluetoothDevice device) {
     return ListTile(
-      title: Text(device.name),
+      title: Text(device.localName),
       trailing: const Text("Connect"),
       onTap: () => connectToDevice(device),
     );
@@ -125,18 +125,18 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       ]),
       body: _buildFindDevicesList(),
       floatingActionButton: StreamBuilder<bool>(
-        stream: FlutterBluePlus.instance.isScanning,
+        stream: FlutterBluePlus.isScanning,
         initialData: false,
         builder: (BuildContext context, AsyncSnapshot snapshot) {
           if (snapshot.data) {
             return FloatingActionButton(
-              child: const Icon(Icons.stop),
               onPressed: stopScanPressed,
               backgroundColor: Colors.red,
+              child: const Icon(Icons.stop),
             );
           } else {
             return FloatingActionButton(
-                child: const Icon(Icons.refresh), onPressed: refreshPressed);
+                onPressed: refreshPressed, child: const Icon(Icons.refresh));
           }
         },
       ),
@@ -144,7 +144,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
   }
 
   void stopScanPressed() {
-    FlutterBluePlus.instance.stopScan();
+    FlutterBluePlus.stopScan();
   }
 
   void refreshPressed() {
@@ -154,11 +154,12 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
     setState(() => {});
 
     // Listen to scan results
-    flutterBlue.scanResults.listen((results) {
+    FlutterBluePlus.scanResults.listen((results) {
       // Add unique scan results to _devices list
       for (ScanResult r in results) {
-        if (r.device.name != '' && !_devices.contains(r.device)) {
-          print('${r.device.name} found! rssi: ${r.rssi}, ID: ${r.device.id}');
+        if (r.device.localName != '' && !_devices.contains(r.device)) {
+          print(
+              '${r.device.localName} found! rssi: ${r.rssi}, ID: ${r.device.remoteId}');
           _devices.add(r.device);
           setState(() => {});
         }
@@ -166,36 +167,27 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
     });
 
     print("starting scan");
-    FlutterBluePlus.instance.startScan(timeout: const Duration(seconds: 8));
+    FlutterBluePlus.startScan(timeout: const Duration(seconds: 8));
   }
 
   Future<void> connectToDevice(BluetoothDevice device) async {
     final _streamController = StreamController<Map<String, double>>();
-    final _batteryLevelStreamController = StreamController<Map<String, int>>();
 
     Stream<Map<String, double>> stream = _streamController.stream;
-    Stream<Map<String, int>> batteryLevelStreamController =
-        _batteryLevelStreamController.stream;
 
     await device
         .connect(autoConnect: false)
         .timeout(const Duration(seconds: 5))
-        .onError((error, stackTrace) => {
-              Fluttertoast.showToast(
-                  msg: "Couldn't Connect to Device",
-                  toastLength: Toast.LENGTH_SHORT,
-                  gravity: ToastGravity.CENTER,
-                  timeInSecForIosWeb: 1,
-                  backgroundColor: Colors.red,
-                  textColor: Colors.white,
-                  fontSize: 16.0)
-            });
+        .onError((error, stackTrace) => Fluttertoast.showToast(
+            msg: "Couldn't Connect to Device",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.CENTER,
+            timeInSecForIosWeb: 1,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+            fontSize: 16.0));
 
     List<BluetoothService> services = await device.discoverServices();
-
-    services.forEach((element) {
-      print("uuid:" + element.uuid.toString());
-    });
 
     BluetoothCharacteristic? accelerationDataCharacteristic;
 
@@ -206,7 +198,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
         .firstWhereOrNull((service) => service.uuid == Guid(UART_SERVICE_UUID));
 
     if (accelerometerService == null) {
-      print("NO Service Found");
+      print("Accelerometer Service not found");
     } else {
       print("Accelerometer Service found");
     }
@@ -226,8 +218,6 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
             characteristic.uuid == Guid(UART_CHARACTERISTIC_UUID));
 
     if (accelerationDataCharacteristic == null) {
-      print("Not a trailer leveller device");
-
       Fluttertoast.showToast(
           msg: "Not a Trailer Leveler",
           toastLength: Toast.LENGTH_SHORT,
@@ -282,12 +272,8 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
         //print(
         //"x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
-        AngleMEasurement angles = calculateAnglesFromDeviceOrientation(
+        AngleMeasurement angles = calculateAnglesFromDeviceOrientation(
             xAng, yAng, zAng, appData.deviceOrientation);
-
-        double x = _RAD_TO_DEG * (atan2(-yAng, -zAng) + _PI);
-        double y = _RAD_TO_DEG * (atan2(-xAng, -zAng) + _PI);
-        double z = _RAD_TO_DEG * (atan2(-yAng, -xAng) + _PI);
 
         var obj = {
           "xAngle": angles.xAngle,
@@ -332,7 +318,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
         //print(            "x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
 
-        AngleMEasurement angles = calculateAnglesFromDeviceOrientation(
+        AngleMeasurement angles = calculateAnglesFromDeviceOrientation(
             xAng, yAng, zAng, appData.deviceOrientation);
 
         // double x = _RAD_TO_DEG * (atan2(-yAng, -zAng) + _PI);
@@ -374,7 +360,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       var batlevel = await batterLevelCharacteristic.read();
       print("Battery Level read(): $batlevel");
 
-      batterLevelCharacteristic.value.listen((value) async {
+      batterLevelCharacteristic.lastValueStream.listen((value) async {
         print("Battery Level: printint");
         print("Battery Level: ${value[0]}");
         double bat = value[0] * 1.0;
@@ -390,9 +376,9 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
     Navigator.pop(context, stream);
   }
 
-  AngleMEasurement calculateAnglesFromDeviceOrientation(
+  AngleMeasurement calculateAnglesFromDeviceOrientation(
       double angleX, double angleY, double angleZ, int orientation) {
-    AngleMEasurement angles = AngleMEasurement(0, 0, 0);
+    AngleMeasurement angles = AngleMeasurement(0, 0, 0);
 
     switch (orientation) {
       case 1:

@@ -1,10 +1,27 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
-import 'package:trailer_leveler_app/angles_page.dart';
 import 'package:wakelock/wakelock.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+import 'package:trailer_leveler_app/angles_page.dart';
 
 void main() {
-  runApp(const MyApp());
+  if (Platform.isAndroid) {
+    WidgetsFlutterBinding.ensureInitialized();
+    [
+      Permission.location,
+      Permission.storage,
+      Permission.bluetooth,
+      Permission.bluetoothConnect,
+      Permission.bluetoothScan
+    ].request().then((status) {
+      runApp(const MyApp());
+    });
+  } else {
+    runApp(const MyApp());
+  }
 }
 
 class MyApp extends StatelessWidget {
