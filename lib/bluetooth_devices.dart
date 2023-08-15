@@ -82,8 +82,8 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
   @override
   dispose() async {
-    super.dispose();
     FlutterBluePlus.stopScan();
+    super.dispose();
   }
 
   Widget _buildFindDevicesList() {
@@ -103,6 +103,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
   @override
   void initState() {
+    print("BUILDING!!!");
     super.initState();
 
     refreshPressed();
@@ -175,17 +176,29 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
     Stream<Map<String, double>> stream = _streamController.stream;
 
+    bool connected = true;
     await device
         .connect(autoConnect: false)
         .timeout(const Duration(seconds: 5))
-        .onError((error, stackTrace) => Fluttertoast.showToast(
-            msg: "Couldn't Connect to Device",
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.CENTER,
-            timeInSecForIosWeb: 1,
-            backgroundColor: Colors.red,
-            textColor: Colors.white,
-            fontSize: 16.0));
+        .onError((error, stackTrace) {
+      print("${stackTrace.toString()}");
+
+      print("${error.toString()}");
+      connected = false;
+      Fluttertoast.showToast(
+          msg: "Couldn't Connect to Device",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.CENTER,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0);
+    });
+
+    if (!connected) {
+      print("Not Connected");
+      return;
+    }
 
     List<BluetoothService> services = await device.discoverServices();
 
@@ -234,7 +247,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
     await accelerationDataCharacteristic.setNotifyValue(true);
 
-    accelerationDataCharacteristic.value.listen((value) async {
+    accelerationDataCharacteristic.lastValueStream.listen((value) async {
       if (value.length == _ADXL355DataLength) {
         int accX = (value[3] << 24 | value[2] << 16 | value[1] << 8 | value[0]);
         int accY = (value[7] << 24 | value[6] << 16 | value[5] << 8 | value[4]);
@@ -335,6 +348,26 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       }
     }, cancelOnError: true);
 
+    device.connectionState.listen((connectionState) async {
+      switch (connectionState) {
+        case BluetoothConnectionState.disconnected:
+          await device.disconnect();
+          device.clearGattCache();
+          await device.removeBond();
+
+          var obj = {
+            "connected": 0.0,
+          };
+
+          _streamController.sink.add(obj);
+
+          print("DISCONNECTED!!!!!");
+          break;
+        default:
+          break;
+      }
+    });
+
     print("Looking for battery service");
     BluetoothService? batterLevelService = services.firstWhereOrNull(
         (service) => service.uuid == Guid(BATTERY_LEVEL_SERVICE_UUID));
@@ -357,12 +390,8 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
     if (batterLevelCharacteristic != null) {
       await batterLevelCharacteristic.setNotifyValue(true);
 
-      var batlevel = await batterLevelCharacteristic.read();
-      print("Battery Level read(): $batlevel");
-
+      await batterLevelCharacteristic.read();
       batterLevelCharacteristic.lastValueStream.listen((value) async {
-        print("Battery Level: printint");
-        print("Battery Level: ${value[0]}");
         double bat = value[0] * 1.0;
         var obj = {
           "batteryLevel": bat,

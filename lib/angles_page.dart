@@ -10,11 +10,6 @@ import 'package:fluttertoast/fluttertoast.dart';
 
 import 'package:trailer_leveler_app/app_data.dart';
 
-MaterialPageRoute bluetoothDevicesPageRoute = MaterialPageRoute(
-    builder: (BuildContext context) => const BluetoothDevices(
-          title: "devices",
-        ));
-
 class AnglesPage extends StatefulWidget {
   const AnglesPage({Key? key}) : super(key: key);
 
@@ -101,27 +96,7 @@ class PageState extends State<AnglesPage> {
                         getBatteryLevelWidget(),
                         IconButton(
                             icon: const Icon(Icons.add_link),
-                            onPressed: () async {
-                              final result = await Navigator.of(context)
-                                  .push(bluetoothDevicesPageRoute);
-
-                              result.listen((value) {
-                                setState(() {
-                                  if (value['xAngle'] != null) {
-                                    _xAngle = value['xAngle'];
-                                  }
-                                  if (value['yAngle'] != null) {
-                                    _yAngle = value['yAngle'];
-                                  }
-                                  if (value['zAngle'] != null) {
-                                    _zAngle = value['zAngle'];
-                                  }
-                                  if (value['batteryLevel'] != null) {
-                                    _batteryLevel = value['batteryLevel'];
-                                  }
-                                });
-                              });
-                            }),
+                            onPressed: _navigateToBluetoothDevicesPage),
                         PopupMenuButton<String>(
                           onSelected: handleClick,
                           itemBuilder: (BuildContext context) {
@@ -142,6 +117,61 @@ class PageState extends State<AnglesPage> {
           // StreamBuilder
           ),
       body: LevelIndicatorWidget(),
+    );
+  }
+
+  void _navigateToBluetoothDevicesPage() async {
+    MaterialPageRoute bluetoothDevicesPageRoute = MaterialPageRoute(
+        builder: (BuildContext context) => const BluetoothDevices(
+              title: "devices",
+            ));
+    final result = await Navigator.of(context).push(bluetoothDevicesPageRoute);
+
+    result.listen((value) {
+      setState(() {
+        if (value['xAngle'] != null) {
+          _xAngle = value['xAngle'];
+        }
+        if (value['yAngle'] != null) {
+          _yAngle = value['yAngle'];
+        }
+        if (value['zAngle'] != null) {
+          _zAngle = value['zAngle'];
+        }
+        if (value['batteryLevel'] != null) {
+          _batteryLevel = value['batteryLevel'];
+        }
+        if (value['connected'] != null) {
+          _showDisconnectedDialog();
+        }
+      });
+    });
+  }
+
+  Future<void> _showDisconnectedDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Disconnected'),
+          content: const SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('The trailer leveler unexpectedly disconnected'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Ok'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
