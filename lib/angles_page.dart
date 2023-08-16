@@ -10,11 +10,6 @@ import 'package:fluttertoast/fluttertoast.dart';
 
 import 'package:trailer_leveler_app/app_data.dart';
 
-MaterialPageRoute bluetoothDevicesPageRoute = MaterialPageRoute(
-    builder: (BuildContext context) => const BluetoothDevices(
-          title: "devices",
-        ));
-
 class AnglesPage extends StatefulWidget {
   const AnglesPage({Key? key}) : super(key: key);
 
@@ -60,11 +55,11 @@ class PageState extends State<AnglesPage> {
     double zAngleSharedPreferences =
         _sharedPreferences.getDouble('zAngleCalibration') ?? 0;
 
-    double _caravanWidthSharedPreferences =
-        _sharedPreferences.getDouble('caravanWidth') ?? 1.0;
+    double? _caravanWidthSharedPreferences =
+        _sharedPreferences.getDouble('caravanWidth');
 
-    double _caravanLengthSharedPreferences =
-        _sharedPreferences.getDouble('caravanLength') ?? 1.0;
+    double? _caravanLengthSharedPreferences =
+        _sharedPreferences.getDouble('caravanLength');
 
     int orientationSharedPreferences =
         _sharedPreferences.getInt('deviceOrientation') ?? 1;
@@ -73,8 +68,13 @@ class PageState extends State<AnglesPage> {
     _yAngleCalibration = yAngleSharedPreferences;
     _zAngleCalibration = zAngleSharedPreferences;
 
-    _caravanWidth = _caravanWidthSharedPreferences;
-    _caravanLength = _caravanLengthSharedPreferences;
+    if (_caravanWidthSharedPreferences != null) {
+      _caravanWidth = _caravanWidthSharedPreferences;
+    }
+
+    if (_caravanLengthSharedPreferences != null) {
+      _caravanLength = _caravanLengthSharedPreferences;
+    }
 
     appData.deviceOrientation = orientationSharedPreferences;
   }
@@ -86,6 +86,8 @@ class PageState extends State<AnglesPage> {
       // setup the shared prefrences and then get the length and width stored
       setupSharedPreferences().then((value) {
         if (_caravanWidth == 0.0001 && _caravanLength == 0.0001) {
+          _caravanWidth = 1.0;
+          _caravanLength = 1.0;
           _showDimensionsDialog();
         }
       });
@@ -101,27 +103,7 @@ class PageState extends State<AnglesPage> {
                         getBatteryLevelWidget(),
                         IconButton(
                             icon: const Icon(Icons.add_link),
-                            onPressed: () async {
-                              final result = await Navigator.of(context)
-                                  .push(bluetoothDevicesPageRoute);
-
-                              result.listen((value) {
-                                setState(() {
-                                  if (value['xAngle'] != null) {
-                                    _xAngle = value['xAngle'];
-                                  }
-                                  if (value['yAngle'] != null) {
-                                    _yAngle = value['yAngle'];
-                                  }
-                                  if (value['zAngle'] != null) {
-                                    _zAngle = value['zAngle'];
-                                  }
-                                  if (value['batteryLevel'] != null) {
-                                    _batteryLevel = value['batteryLevel'];
-                                  }
-                                });
-                              });
-                            }),
+                            onPressed: _navigateToBluetoothDevicesPage),
                         PopupMenuButton<String>(
                           onSelected: handleClick,
                           itemBuilder: (BuildContext context) {
@@ -142,6 +124,61 @@ class PageState extends State<AnglesPage> {
           // StreamBuilder
           ),
       body: LevelIndicatorWidget(),
+    );
+  }
+
+  void _navigateToBluetoothDevicesPage() async {
+    MaterialPageRoute bluetoothDevicesPageRoute = MaterialPageRoute(
+        builder: (BuildContext context) => const BluetoothDevices(
+              title: "devices",
+            ));
+    final result = await Navigator.of(context).push(bluetoothDevicesPageRoute);
+
+    result.listen((value) {
+      setState(() {
+        if (value['xAngle'] != null) {
+          _xAngle = value['xAngle'];
+        }
+        if (value['yAngle'] != null) {
+          _yAngle = value['yAngle'];
+        }
+        if (value['zAngle'] != null) {
+          _zAngle = value['zAngle'];
+        }
+        if (value['batteryLevel'] != null) {
+          _batteryLevel = value['batteryLevel'];
+        }
+        if (value['connected'] != null) {
+          _showDisconnectedDialog();
+        }
+      });
+    });
+  }
+
+  Future<void> _showDisconnectedDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Disconnected'),
+          content: const SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('The trailer leveler unexpectedly disconnected'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Ok'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -346,6 +383,9 @@ class PageState extends State<AnglesPage> {
     TextEditingController _caravanWidthController = TextEditingController();
     TextEditingController _caravanLengthController = TextEditingController();
 
+    _caravanWidthController.text = _caravanWidth.toString();
+    _caravanLengthController.text = _caravanLength.toString();
+
     return showDialog<void>(
       context: context,
       barrierDismissible: false, // user must tap button!
@@ -355,7 +395,7 @@ class PageState extends State<AnglesPage> {
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
-                const Text('Caravan Width'),
+                const Text('Caravan Width (m)'),
                 TextField(
                   keyboardType: TextInputType.number,
                   controller: _caravanWidthController,
@@ -363,7 +403,7 @@ class PageState extends State<AnglesPage> {
                       border: InputBorder.none,
                       hintText: 'Enter width in meters'),
                 ),
-                const Text('Caravan Length'),
+                const Text('Caravan Length (m)'),
                 TextField(
                   keyboardType: TextInputType.number,
                   controller: _caravanLengthController,
