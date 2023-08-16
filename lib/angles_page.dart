@@ -55,11 +55,11 @@ class PageState extends State<AnglesPage> {
     double zAngleSharedPreferences =
         _sharedPreferences.getDouble('zAngleCalibration') ?? 0;
 
-    double _caravanWidthSharedPreferences =
-        _sharedPreferences.getDouble('caravanWidth') ?? 1.0;
+    double? _caravanWidthSharedPreferences =
+        _sharedPreferences.getDouble('caravanWidth');
 
-    double _caravanLengthSharedPreferences =
-        _sharedPreferences.getDouble('caravanLength') ?? 1.0;
+    double? _caravanLengthSharedPreferences =
+        _sharedPreferences.getDouble('caravanLength');
 
     int orientationSharedPreferences =
         _sharedPreferences.getInt('deviceOrientation') ?? 1;
@@ -68,8 +68,13 @@ class PageState extends State<AnglesPage> {
     _yAngleCalibration = yAngleSharedPreferences;
     _zAngleCalibration = zAngleSharedPreferences;
 
-    _caravanWidth = _caravanWidthSharedPreferences;
-    _caravanLength = _caravanLengthSharedPreferences;
+    if (_caravanWidthSharedPreferences != null) {
+      _caravanWidth = _caravanWidthSharedPreferences;
+    }
+
+    if (_caravanLengthSharedPreferences != null) {
+      _caravanLength = _caravanLengthSharedPreferences;
+    }
 
     appData.deviceOrientation = orientationSharedPreferences;
   }
@@ -81,6 +86,8 @@ class PageState extends State<AnglesPage> {
       // setup the shared prefrences and then get the length and width stored
       setupSharedPreferences().then((value) {
         if (_caravanWidth == 0.0001 && _caravanLength == 0.0001) {
+          _caravanWidth = 1.0;
+          _caravanLength = 1.0;
           _showDimensionsDialog();
         }
       });
@@ -376,6 +383,9 @@ class PageState extends State<AnglesPage> {
     TextEditingController _caravanWidthController = TextEditingController();
     TextEditingController _caravanLengthController = TextEditingController();
 
+    _caravanWidthController.text = _caravanWidth.toString();
+    _caravanLengthController.text = _caravanLength.toString();
+
     return showDialog<void>(
       context: context,
       barrierDismissible: false, // user must tap button!
@@ -385,7 +395,7 @@ class PageState extends State<AnglesPage> {
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
-                const Text('Caravan Width'),
+                const Text('Caravan Width (m)'),
                 TextField(
                   keyboardType: TextInputType.number,
                   controller: _caravanWidthController,
@@ -393,7 +403,7 @@ class PageState extends State<AnglesPage> {
                       border: InputBorder.none,
                       hintText: 'Enter width in meters'),
                 ),
-                const Text('Caravan Length'),
+                const Text('Caravan Length (m)'),
                 TextField(
                   keyboardType: TextInputType.number,
                   controller: _caravanLengthController,
