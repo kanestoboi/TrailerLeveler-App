@@ -82,7 +82,7 @@ class PageState extends State<AnglesPage> {
   @override
   Widget build(BuildContext context) {
     // Perform an action after the build is completed
-    SchedulerBinding.instance!.addPostFrameCallback((durarion) {
+    SchedulerBinding.instance.addPostFrameCallback((durarion) {
       // setup the shared prefrences and then get the length and width stored
       setupSharedPreferences().then((value) {
         if (_caravanWidth == 0.0001 && _caravanLength == 0.0001) {
@@ -101,29 +101,34 @@ class PageState extends State<AnglesPage> {
                       title: const Text('Trailer Leveler'),
                       actions: <Widget>[
                         getBatteryLevelWidget(),
-                        IconButton(
-                            icon: const Icon(Icons.add_link),
-                            onPressed: _navigateToBluetoothDevicesPage),
-                        PopupMenuButton<String>(
-                          onSelected: handleClick,
-                          itemBuilder: (BuildContext context) {
-                            return {
-                              'Calibrate',
-                              'Set Caravan Dimensions',
-                              'Set Device Orientation'
-                            }.map((String choice) {
-                              return PopupMenuItem<String>(
-                                value: choice,
-                                child: Text(choice),
-                              );
-                            }).toList();
-                          },
-                        ),
+                        bluetoothDeviceWidget(),
+                        menuWidget(),
                       ]))
 
           // StreamBuilder
           ),
       body: LevelIndicatorWidget(),
+    );
+  }
+
+  Widget bluetoothDeviceWidget() {
+    return IconButton(
+        icon: const Icon(Icons.add_link),
+        onPressed: _navigateToBluetoothDevicesPage);
+  }
+
+  Widget menuWidget() {
+    return PopupMenuButton<String>(
+      onSelected: handleClick,
+      itemBuilder: (BuildContext context) {
+        return {'Calibrate', 'Set Caravan Dimensions', 'Set Device Orientation'}
+            .map((String choice) {
+          return PopupMenuItem<String>(
+            value: choice,
+            child: Text(choice),
+          );
+        }).toList();
+      },
     );
   }
 
@@ -199,7 +204,7 @@ class PageState extends State<AnglesPage> {
           child: Center(
               child: Transform.rotate(
                   angle: pi / 180 * (_yAngle - _yAngleCalibration) * -1,
-                  child: Image.asset('images/camper_side.png', width: 150))),
+                  child: Image.asset('images/camper_side.png', width: 250))),
         ),
         Row(children: <Widget>[
           Expanded(
