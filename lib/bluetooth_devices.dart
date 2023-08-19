@@ -200,6 +200,12 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       return;
     }
 
+    var obj = {
+      "connected": 1.0,
+    };
+
+    _streamController.sink.add(obj);
+
     List<BluetoothService> services = await device.discoverServices();
 
     BluetoothCharacteristic? accelerationDataCharacteristic;
@@ -352,8 +358,6 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       switch (connectionState) {
         case BluetoothConnectionState.disconnected:
           await device.disconnect();
-          device.clearGattCache();
-          await device.removeBond();
 
           var obj = {
             "connected": 0.0,
