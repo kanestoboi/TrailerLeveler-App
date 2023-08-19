@@ -35,6 +35,8 @@ class PageState extends State<AnglesPage> {
 
   String horizontalReference = 'right';
 
+  bool deviceConnected = false;
+
   // save in the state for caching!
   late SharedPreferences _sharedPreferences;
 
@@ -101,13 +103,12 @@ class PageState extends State<AnglesPage> {
                       title: const Text('Trailer Leveler'),
                       actions: <Widget>[
                         getBatteryLevelWidget(),
-                        bluetoothDeviceWidget(),
                         menuWidget(),
                       ]))
 
           // StreamBuilder
           ),
-      body: LevelIndicatorWidget(),
+      body: getLevelIndicatorWidget(),
     );
   }
 
@@ -154,7 +155,12 @@ class PageState extends State<AnglesPage> {
           _batteryLevel = value['batteryLevel'];
         }
         if (value['connected'] != null) {
-          _showDisconnectedDialog();
+          if (value['connected'] == 1.0) {
+            deviceConnected = true;
+          } else {
+            deviceConnected = false;
+            _showDisconnectedDialog();
+          }
         }
       });
     });
@@ -187,34 +193,130 @@ class PageState extends State<AnglesPage> {
     );
   }
 
-  Widget LevelIndicatorWidget() {
-    return Center(
-        child: Column(
+  Widget getLevelIndicatorWidget() {
+    return Stack(
       children: [
         Center(
-            child: Transform.rotate(
-                angle: pi / 180.0 * (_xAngle - _xAngleCalibration),
-                child: Image.asset('images/camper_rear.png', width: 100))),
-        Row(children: <Widget>[
-          Expanded(child: getLeftHeightStringWidget()),
-          Expanded(child: getRightHeightStringWidget()),
-        ]),
-        Padding(
-          padding: const EdgeInsets.all(30.0),
-          child: Center(
-              child: Transform.rotate(
-                  angle: pi / 180 * (_yAngle - _yAngleCalibration) * -1,
-                  child: Image.asset('images/camper_side.png', width: 250))),
+          child: Column(
+            children: [
+              Padding(
+                  padding: EdgeInsets.fromLTRB(
+                      16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
+                  child: Center(
+                    child: Transform.rotate(
+                      angle: pi / 180.0 * (_xAngle - _xAngleCalibration),
+                      child: Image.asset('images/camper_rear.png', width: 100),
+                    ),
+                  )),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: getLeftHeightStringWidget(),
+                    flex: 2,
+                  ),
+                  Expanded(
+                    child: getXAngleStringWidget(),
+                    flex: 1,
+                  ),
+                  Expanded(
+                    child: getRightHeightStringWidget(),
+                    flex: 2,
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
+                child: Center(
+                  child: Transform.rotate(
+                    angle: pi / 180 * (_yAngle - _yAngleCalibration) * -1,
+                    child: Image.asset('images/camper_side.png', width: 250),
+                  ),
+                ),
+              ),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: getJockyHeightWidget(),
+                    flex: 2,
+                  ),
+                  Expanded(
+                    child: getYAngleStringWidget(),
+                    flex: 1,
+                  ),
+                  const Expanded(
+                    child: SizedBox(),
+                    flex: 2,
+                  )
+                ],
+              ),
+            ],
+          ),
         ),
-        Row(children: <Widget>[
-          Expanded(
-              child: Padding(
-            padding: const EdgeInsets.fromLTRB(50.0, 0, 0, 0),
-            child: getJockyHeightWidget(),
-          )),
-        ]),
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Padding(
+              padding:
+                  const EdgeInsets.all(16.0), // Adjust the padding as needed
+              child: getConnectToDeviceWidget()),
+        ),
       ],
-    ));
+    );
+  }
+
+  Widget getConnectToDeviceWidget() {
+    return !deviceConnected
+        ? FilledButton(
+            onPressed: _navigateToBluetoothDevicesPage,
+            child: const Text('Connect to Device'),
+          )
+        : SizedBox();
+  }
+
+  Widget getXAngleStringWidget() {
+    var format = NumberFormat("##0.00", "en_US");
+
+    String angleString;
+    Color textColor = Colors.black54;
+
+    double adjustedAngle = (_xAngle - _xAngleCalibration);
+    double roundedAngle = (adjustedAngle / 0.05).round() * 0.05;
+
+    angleString = '${format.format(roundedAngle)}°';
+
+    return Text(
+      angleString,
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: 20,
+        color: textColor,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+
+  Widget getYAngleStringWidget() {
+    var format = NumberFormat("##0.00", "en_US");
+
+    String angleString;
+    Color textColor = Colors.black54;
+
+    double adjustedAngle = (_yAngle - _yAngleCalibration);
+    double roundedAngle = (adjustedAngle / 0.05).round() * 0.05;
+
+    angleString = '${format.format(roundedAngle)}°';
+
+    return Text(
+      angleString,
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: 20,
+        color: textColor,
+        fontWeight: FontWeight.bold,
+      ),
+    );
   }
 
   Widget getLeftHeightStringWidget() {
@@ -238,7 +340,7 @@ class PageState extends State<AnglesPage> {
     } else if (height < 0) {
       heightString = '$upArrow ${format.format(height.abs())}';
     } else {
-      heightString = '0.00';
+      heightString = '0.000';
       textColor = Colors.green;
     }
 
@@ -259,7 +361,7 @@ class PageState extends State<AnglesPage> {
       height = 0.0;
     }
 
-    var format = NumberFormat("##0.000", "en_US");
+    var format = NumberFormat("##0.00", "en_US");
 
     String heightString;
     Color textColor = Colors.red;
@@ -269,7 +371,7 @@ class PageState extends State<AnglesPage> {
     } else if (height > 0) {
       heightString = '$upArrow ${format.format(height.abs())}';
     } else {
-      heightString = '0.00';
+      heightString = '0.000';
       textColor = Colors.green;
     }
 
@@ -296,13 +398,13 @@ class PageState extends State<AnglesPage> {
     } else if (height < 0) {
       heightString = '$upArrow ${format.format(height.abs())}';
     } else {
-      heightString = '0.00';
+      heightString = '0.000';
       textColor = Colors.green;
     }
 
     return Text(
       heightString,
-      textAlign: TextAlign.left,
+      textAlign: TextAlign.center,
       style: TextStyle(
           fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
     );
