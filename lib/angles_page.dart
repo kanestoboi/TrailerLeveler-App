@@ -38,11 +38,19 @@ class PageState extends State<AnglesPage> {
 
   bool deviceConnected = false;
 
+  late Image camperRear;
+  late Image camperSide;
+
   // save in the state for caching!
   late SharedPreferences _sharedPreferences;
 
   @override
   void initState() {
+    camperRear = Image.asset("images/camper_rear.png", width: 200);
+    camperSide = Image.asset(
+      "images/camper_side.png",
+      width: 250,
+    );
     super.initState();
   }
 
@@ -299,7 +307,7 @@ class PageState extends State<AnglesPage> {
                   child: Center(
                     child: Transform.rotate(
                       angle: pi / 180.0 * (_xAngle - _xAngleCalibration),
-                      child: Image.asset('images/camper_rear.png', width: 100),
+                      child: camperRear,
                     ),
                   )),
               Row(
@@ -324,7 +332,7 @@ class PageState extends State<AnglesPage> {
                 child: Center(
                   child: Transform.rotate(
                     angle: pi / 180 * (_yAngle - _yAngleCalibration) * -1,
-                    child: Image.asset('images/camper_side.png', width: 250),
+                    child: camperSide,
                   ),
                 ),
               ),
