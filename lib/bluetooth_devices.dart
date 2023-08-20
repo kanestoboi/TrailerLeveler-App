@@ -116,14 +116,8 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
   Scaffold _buildFindDevicesPage(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Discover Devices'), actions: <Widget>[
-        IconButton(
-          icon: const Icon(Icons.add_link),
-          onPressed: () async {
-            Navigator.pop(context, 'Yep!');
-          },
-        ),
-      ]),
+      appBar: AppBar(
+          title: const Text('Discover Devices'), actions: const <Widget>[]),
       body: _buildFindDevicesList(),
       floatingActionButton: StreamBuilder<bool>(
         stream: FlutterBluePlus.isScanning,

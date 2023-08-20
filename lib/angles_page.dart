@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:trailer_leveler_app/bluetooth_devices.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
@@ -100,15 +101,101 @@ class PageState extends State<AnglesPage> {
           preferredSize: const Size(double.infinity, kToolbarHeight),
           child: Builder(
               builder: (context) => AppBar(
-                      title: const Text('Trailer Leveler'),
+                      systemOverlayStyle: const SystemUiOverlayStyle(
+                        // Status bar color
+                        statusBarColor: Colors.transparent,
+
+                        // Status bar brightness (optional)
+                        statusBarIconBrightness:
+                            Brightness.dark, // For Android (dark icons)
+                        statusBarBrightness:
+                            Brightness.light, // For iOS (dark icons)
+                      ),
+                      backgroundColor:
+                          Theme.of(context).scaffoldBackgroundColor,
+                      elevation: 0,
+                      leading: menuWidget(context),
                       actions: <Widget>[
                         getBatteryLevelWidget(),
-                        menuWidget(),
                       ]))
 
           // StreamBuilder
           ),
       body: getLevelIndicatorWidget(),
+      drawer: Drawer(
+        // Add a ListView to the drawer. This ensures the user can scroll
+        // through the options in the drawer if there isn't enough vertical
+        // space to fit everything.
+        child: ListView(
+          // Important: Remove any padding from the ListView.
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.blue,
+              ),
+              child: Text('Drawer Header'),
+            ),
+            ListTile(
+              title: const Text(
+                'Calibrate',
+                maxLines: 1,
+              ),
+              selected: false,
+              onTap: () async {
+                Navigator.pop(context);
+
+                await _showCalibrationDialog();
+
+                _xAngleCalibration = _xAngle;
+                _yAngleCalibration = _yAngle;
+                _zAngleCalibration = _zAngle;
+                _sharedPreferences.setDouble(
+                    'xAngleCalibration', _xAngleCalibration);
+                _sharedPreferences.setDouble(
+                    'yAngleCalibration', _yAngleCalibration);
+                _sharedPreferences.setDouble(
+                    'zAngleCalibration', _zAngleCalibration);
+                // Then close the drawer
+              },
+            ),
+            ListTile(
+              title: const Text(
+                'Set Caravan Dimensions',
+                maxLines: 1,
+              ),
+              selected: false,
+              onTap: () async {
+                // Then close the drawer
+                Navigator.pop(context);
+                await _showDimensionsDialog();
+              },
+            ),
+            ListTile(
+              title: const Text(
+                'Set Device Orientation',
+                maxLines: 1,
+              ),
+              selected: false,
+              onTap: () async {
+                // Then close the drawer
+                Navigator.pop(context);
+                _showDeviceOrientationDialog();
+              },
+            ),
+            ListTile(
+              title: const Text(
+                'Settings',
+                maxLines: 1,
+              ),
+              selected: false,
+              onTap: () async {
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -118,19 +205,26 @@ class PageState extends State<AnglesPage> {
         onPressed: _navigateToBluetoothDevicesPage);
   }
 
-  Widget menuWidget() {
-    return PopupMenuButton<String>(
-      onSelected: handleClick,
-      itemBuilder: (BuildContext context) {
-        return {'Calibrate', 'Set Caravan Dimensions', 'Set Device Orientation'}
-            .map((String choice) {
-          return PopupMenuItem<String>(
-            value: choice,
-            child: Text(choice),
-          );
-        }).toList();
+  Widget menuWidget(BuildContext thecontext) {
+    return IconButton(
+      icon: const Icon(Icons.menu, color: Colors.black54), // Menu icon
+      onPressed: () {
+        Scaffold.of(thecontext).openDrawer(); // Open the drawer
       },
     );
+    // return PopupMenuButton<String>(
+    //   icon: const Icon(Icons.menu, color: Colors.black54),
+    //   onSelected: (handleClick),
+    //   itemBuilder: (BuildContext context) {
+    //     return {'Calibrate', 'Set Caravan Dimensions', 'Set Device Orientation'}
+    //         .map((String choice) {
+    //       return PopupMenuItem<String>(
+    //         value: choice,
+    //         child: Text(choice),
+    //       );
+    //     }).toList();
+    //   },
+    // );
   }
 
   void _navigateToBluetoothDevicesPage() async {
@@ -200,7 +294,7 @@ class PageState extends State<AnglesPage> {
           child: Column(
             children: [
               Padding(
-                  padding: EdgeInsets.fromLTRB(
+                  padding: const EdgeInsets.fromLTRB(
                       16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
                   child: Center(
                     child: Transform.rotate(
@@ -420,15 +514,16 @@ class PageState extends State<AnglesPage> {
       batteryLevelString = "      ";
     }
 
-    Color textColor = Colors.white;
+    Color textColor = Colors.black54;
 
-    return Center(
+    return Padding(
+        padding: const EdgeInsets.only(right: 20.0, top: 14),
         child: Text(
-      batteryLevelString,
-      textAlign: TextAlign.left,
-      style: TextStyle(
-          fontSize: 18, color: textColor, fontWeight: FontWeight.normal),
-    ));
+          batteryLevelString,
+          textAlign: TextAlign.left,
+          style: TextStyle(
+              fontSize: 18, color: textColor, fontWeight: FontWeight.normal),
+        ));
   }
 
   Future<void> handleClick(String value) async {
@@ -465,9 +560,9 @@ class PageState extends State<AnglesPage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Calibrate Trailer Leveler'),
-          content: SingleChildScrollView(
+          content: const SingleChildScrollView(
             child: ListBody(
-              children: const <Widget>[
+              children: <Widget>[
                 Text('This will calibrate the sensor.'),
                 Text('Make sure that the device is level and press OK.'),
               ],
@@ -569,6 +664,7 @@ class PageState extends State<AnglesPage> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   color: Colors.lightBlue,
+                  width: 400,
                   child: const Text(
                     "Front Direction \u2B09",
                     style: TextStyle(
@@ -580,7 +676,6 @@ class PageState extends State<AnglesPage> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  width: 400,
                 ),
                 Expanded(
                   child: Row(
@@ -711,6 +806,7 @@ class PageState extends State<AnglesPage> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   color: Colors.lightBlue,
+                  width: 400,
                   child: TextButton(
                     style: ButtonStyle(
                       foregroundColor:
@@ -738,7 +834,6 @@ class PageState extends State<AnglesPage> {
                       ),
                     ),
                   ),
-                  width: 400,
                 ),
               ],
             ));
