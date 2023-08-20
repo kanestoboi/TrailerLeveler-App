@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 import 'package:trailer_leveler_app/app_data.dart';
 
@@ -19,6 +20,10 @@ class AnglesPage extends StatefulWidget {
 }
 
 class PageState extends State<AnglesPage> {
+  AudioPlayer? audioPlayer;
+  Timer? loopTimer;
+  bool isPlaying = false;
+
   double _xAngleCalibration = 0.0;
   double _yAngleCalibration = 0.0;
   double _zAngleCalibration = 0.0;
@@ -30,6 +35,9 @@ class PageState extends State<AnglesPage> {
   double _caravanWidth = 0.0001;
   double _caravanLength = 0.0001;
 
+  int minInterval = 2000; // Minimum interval in milliseconds
+  int maxInterval = 5000; // Maximum interval in milliseconds
+
   String downArrow = "\u2b07";
   String upArrow = "\u2b06";
   String batterySymbol = "\u{1F50B}";
@@ -37,6 +45,8 @@ class PageState extends State<AnglesPage> {
   String horizontalReference = 'right';
 
   bool deviceConnected = false;
+
+  bool isSoundMuted = true;
 
   late Image camperRear;
   late Image camperSide;
@@ -46,12 +56,58 @@ class PageState extends State<AnglesPage> {
 
   @override
   void initState() {
+    audioPlayer = AudioPlayer();
+    audioPlayer?.setPlayerMode(PlayerMode.lowLatency);
     camperRear = Image.asset("images/camper_rear.png", width: 200);
     camperSide = Image.asset(
       "images/camper_side.png",
       width: 250,
     );
     super.initState();
+  }
+
+  /// Did Change Dependencies
+  @override
+  void didChangeDependencies() {
+    precacheImage(camperRear.image, context);
+    precacheImage(camperSide.image, context);
+    super.didChangeDependencies();
+  }
+
+  @override
+  void dispose() {
+    audioPlayer?.dispose();
+    loopTimer?.cancel();
+    super.dispose();
+  }
+
+  void loopAudio() async {
+    loopTimer?.cancel();
+    if (!deviceConnected || isSoundMuted) {
+      audioPlayer?.stop();
+      setState(() => isPlaying = false);
+      loopTimer?.cancel();
+      return;
+    }
+    if (!isPlaying) {
+      print("Playing");
+
+      await audioPlayer?.play(
+          AssetSource('sounds/beep1.wav')); // will immediately start playing
+
+      isPlaying = true;
+
+      int interval =
+          100 + ((_xAngle - _xAngleCalibration) * 100.0).toInt().abs();
+      print("interval: $interval");
+
+      loopTimer = Timer(Duration(milliseconds: interval), () async {
+        print("Stopped");
+        await audioPlayer?.stop();
+        isPlaying = false;
+        loopAudio(); // Start the loop again
+      });
+    }
   }
 
   Future<void> setupSharedPreferences() async {
@@ -124,6 +180,24 @@ class PageState extends State<AnglesPage> {
                       elevation: 0,
                       leading: menuWidget(context),
                       actions: <Widget>[
+                        Padding(
+                          padding: const EdgeInsets.only(right: 25),
+                          child: GestureDetector(
+                            onTap: () {
+                              // Code to execute when the icon is pressed
+                              // For example, you can play the audio here
+
+                              setState(() {
+                                isSoundMuted = !isSoundMuted;
+                                loopAudio();
+                              });
+                            },
+                            child: Icon(
+                              isSoundMuted ? Icons.volume_off : Icons.volume_up,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ),
                         getBatteryLevelWidget(),
                       ]))
 
@@ -216,23 +290,10 @@ class PageState extends State<AnglesPage> {
   Widget menuWidget(BuildContext thecontext) {
     return IconButton(
       icon: const Icon(Icons.menu, color: Colors.black54), // Menu icon
-      onPressed: () {
+      onPressed: () async {
         Scaffold.of(thecontext).openDrawer(); // Open the drawer
       },
     );
-    // return PopupMenuButton<String>(
-    //   icon: const Icon(Icons.menu, color: Colors.black54),
-    //   onSelected: (handleClick),
-    //   itemBuilder: (BuildContext context) {
-    //     return {'Calibrate', 'Set Caravan Dimensions', 'Set Device Orientation'}
-    //         .map((String choice) {
-    //       return PopupMenuItem<String>(
-    //         value: choice,
-    //         child: Text(choice),
-    //       );
-    //     }).toList();
-    //   },
-    // );
   }
 
   void _navigateToBluetoothDevicesPage() async {
@@ -259,6 +320,7 @@ class PageState extends State<AnglesPage> {
         if (value['connected'] != null) {
           if (value['connected'] == 1.0) {
             deviceConnected = true;
+            loopAudio();
           } else {
             deviceConnected = false;
             _showDisconnectedDialog();
@@ -525,10 +587,10 @@ class PageState extends State<AnglesPage> {
     Color textColor = Colors.black54;
 
     return Padding(
-        padding: const EdgeInsets.only(right: 20.0, top: 14),
+        padding: const EdgeInsets.only(right: 25.0, top: 16),
         child: Text(
           batteryLevelString,
-          textAlign: TextAlign.left,
+          textAlign: TextAlign.center,
           style: TextStyle(
               fontSize: 18, color: textColor, fontWeight: FontWeight.normal),
         ));
