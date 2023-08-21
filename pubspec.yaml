@@ -42,6 +42,7 @@ dependencies:
   intl: ^0.18.0
   fluttertoast: ^8.1.2
   permission_handler: ^10.4.3
+  audioplayers: ^5.1.0
 
 dev_dependencies:
   flutter_test:
@@ -74,6 +75,8 @@ flutter:
   - images/device-orientation-4.png
   - images/device-orientation-5.png
   - images/device-orientation-6.png
+
+  - assets/sounds/beep1.wav
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
 
