@@ -75,6 +75,8 @@ flutter:
   - images/device-orientation-4.png
   - images/device-orientation-5.png
   - images/device-orientation-6.png
+
+  - assets/sounds/beep1.wav
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
 

@@ -57,7 +57,7 @@ class PageState extends State<AnglesPage> {
   @override
   void initState() {
     audioPlayer = AudioPlayer();
-    audioPlayer?.setPlayerMode(PlayerMode.lowLatency);
+    //audioPlayer?.setPlayerMode(PlayerMode.lowLatency);
     camperRear = Image.asset("images/camper_rear.png", width: 200);
     camperSide = Image.asset(
       "images/camper_side.png",
@@ -84,16 +84,22 @@ class PageState extends State<AnglesPage> {
   void loopAudio() async {
     loopTimer?.cancel();
     if (!deviceConnected || isSoundMuted) {
-      audioPlayer?.stop();
+      await audioPlayer?.stop();
       setState(() => isPlaying = false);
       loopTimer?.cancel();
       return;
     }
+
     if (!isPlaying) {
       print("Playing");
+      await audioPlayer?.stop();
 
-      await audioPlayer?.play(
-          AssetSource('sounds/beep1.wav')); // will immediately start playing
+      try {
+        await audioPlayer?.play(
+            AssetSource('sounds/beep1.wav')); // will immediately start playing
+      } on TimeoutException catch (e) {
+        print('TimeoutException: ${e.message}');
+      }
 
       isPlaying = true;
 
