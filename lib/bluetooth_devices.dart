@@ -348,11 +348,14 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       }
     }, cancelOnError: true);
 
-    device.connectionState.listen((connectionState) async {
+    // Declare the subscription variable
+    StreamSubscription<BluetoothConnectionState>? connectionStateSubscription;
+
+    // Start listening to the stream
+    connectionStateSubscription =
+        device.connectionState.listen((connectionState) async {
       switch (connectionState) {
         case BluetoothConnectionState.disconnected:
-          await device.disconnect();
-
           var obj = {
             "connected": 0.0,
           };
@@ -360,6 +363,8 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
           _streamController.sink.add(obj);
 
           print("DISCONNECTED!!!!!");
+          // Cancel the subscription to stop listening
+          connectionStateSubscription?.cancel();
           break;
         default:
           break;
