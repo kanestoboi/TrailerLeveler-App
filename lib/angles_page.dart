@@ -508,10 +508,19 @@ class PageState extends State<AnglesPage> {
       textColor = Colors.green;
     }
 
-    return Text(heightString,
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          horizontalReference = 'right';
+        });
+      },
+      child: Text(
+        heightString,
         textAlign: TextAlign.center,
         style: TextStyle(
-            fontSize: 36, color: textColor, fontWeight: FontWeight.bold));
+            fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+      ),
+    );
   }
 
   Widget getRightHeightStringWidget() {
@@ -525,7 +534,7 @@ class PageState extends State<AnglesPage> {
       height = 0.0;
     }
 
-    var format = NumberFormat("##0.00", "en_US");
+    var format = NumberFormat("##0.000", "en_US");
 
     String heightString;
     Color textColor = Colors.red;
@@ -539,11 +548,18 @@ class PageState extends State<AnglesPage> {
       textColor = Colors.green;
     }
 
-    return Text(
-      heightString,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-          fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          horizontalReference = 'left';
+        });
+      },
+      child: Text(
+        heightString,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+            fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+      ),
     );
   }
 
