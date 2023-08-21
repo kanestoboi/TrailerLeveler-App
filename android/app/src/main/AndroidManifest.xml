@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.trailer_leveler_app">
+    package="com.stoboi.trailer_leveler_app">
    <application
         android:label="Trailer Leveler"
         android:name="${applicationName}"
