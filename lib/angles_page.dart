@@ -3,20 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:trailer_leveler_app/bluetooth_devices.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:nordic_dfu/nordic_dfu.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 
 import 'package:trailer_leveler_app/app_data.dart';
+import 'package:trailer_leveler_app/dfu_update_page.dart';
 
 class AnglesPage extends StatefulWidget {
   const AnglesPage({Key? key}) : super(key: key);
@@ -52,11 +47,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
   bool deviceConnected = false;
 
-  bool dfuRunning = false;
-
   bool isSoundMuted = true;
-
-  double dfuUploadProgress = 0.0;
 
   late Image camperRear;
   late Image camperSide;
@@ -102,24 +93,24 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     }
 
     if (!isPlaying) {
-      print("Playing");
+      debugPrint("Playing");
       await audioPlayer?.stop();
 
       try {
         await audioPlayer?.play(
             AssetSource('sounds/beep1.wav')); // will immediately start playing
       } on TimeoutException catch (e) {
-        print('TimeoutException: ${e.message}');
+        debugPrint('TimeoutException: ${e.message}');
       }
 
       isPlaying = true;
 
       int interval =
           100 + ((_xAngle - _xAngleCalibration) * 100.0).toInt().abs();
-      print("interval: $interval");
+      debugPrint("interval: $interval");
 
       loopTimer = Timer(Duration(milliseconds: interval), () async {
-        print("Stopped");
+        debugPrint("Stopped");
         await audioPlayer?.stop();
         isPlaying = false;
         loopAudio(); // Start the loop again
@@ -309,128 +300,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     );
   }
 
-  Future<String?> getLatestReleaseAssetLink() async {
-    const username = 'kanestoboi';
-    const repo = 'TrailerLeveler-Firmware';
-
-    final response = await http.get(
-      Uri.https('api.github.com', 'repos/$username/$repo/releases/latest'),
-    );
-
-    if (response.statusCode == 200) {
-      final releaseData = json.decode(response.body);
-      final assets = releaseData['assets'] as List<dynamic>;
-
-      for (var asset in assets) {
-        final assetName = asset['name'] as String;
-        if (assetName.contains('trailer_leveler_application_v') &&
-            assetName.endsWith('_s140.zip')) {
-          return asset['browser_download_url'] as String;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  Future<void> downloadLatestReleaseAsset() async {
-    final assetLink = await getLatestReleaseAssetLink();
-
-    if (assetLink != null) {
-      final tempDir = await getTemporaryDirectory();
-      final tempFilePath = '${tempDir.path}/trailer_leveler_application.zip';
-
-      final response = await http.get(Uri.parse(assetLink));
-
-      if (response.statusCode == 200) {
-        final file = File(tempFilePath);
-        await file.writeAsBytes(response.bodyBytes);
-        print("Download Completed");
-        // Delete the downloaded file after it's complete
-        File downloadedFile = File(tempFilePath);
-        if (await downloadedFile.exists()) {
-          print("Starting DFU!!!");
-
-          await startDfu(tempFilePath);
-          await downloadedFile.delete();
-
-          print("Deleted File");
-        }
-        // You can now use the tempFilePath for further processing or passing to flutter_nordic_dfu package
-      }
-    }
-  }
-
-  Future<void> startDfu(String filePath) async {
-    String? deviceID;
-    BluetoothDevice? deviceForDFU;
-    List<BluetoothDevice> devices =
-        await FlutterBluePlus.connectedSystemDevices;
-
-    devices.forEach((device) async {
-      if (device.localName == "Trailer Leveler") {
-        deviceID = device.remoteId.toString();
-        deviceForDFU = device;
-
-        await device.disconnect();
-      }
-    });
-
-    if (deviceID == null) {
-      return;
-    }
-
-    dfuRunning = true;
-    try {
-      print("Updating");
-      final s = await NordicDfu().startDfu(
-        deviceID!, filePath,
-        fileInAsset: false,
-        onDeviceDisconnecting: (string) {
-          debugPrint('deviceAddress: $string');
-        },
-        onProgressChanged: (
-          deviceAddress,
-          percent,
-          speed,
-          avgSpeed,
-          currentPart,
-          partsTotal,
-        ) {
-          setState(() {
-            print("PERCENT! ");
-            dfuUploadProgress = percent / 100;
-          });
-
-          dfuUploadProgress = percent / 100;
-          debugPrint('deviceAddress: $deviceAddress, percent: $percent');
-        },
-        onDfuAborted: (address) => () {
-          debugPrint('ABORTED!!!!!!!');
-          ;
-        },
-        onFirmwareValidating: (address) {
-          debugPrint('Validating');
-        },
-        onDfuCompleted: (address) {
-          debugPrint('Completed');
-          _navigateToBluetoothDevicesPage();
-        },
-        onError: (address, error, errorType, message) async {
-          debugPrint('Error: ${message}');
-        },
-
-        // androidSpecialParameter: const AndroidSpecialParameter(rebootTime: 1000),
-      );
-
-      debugPrint(s);
-      dfuRunning = false;
-    } catch (e) {
-      dfuRunning = false;
-      debugPrint(e.toString());
-    }
-  }
-
   Widget bluetoothDeviceWidget() {
     return IconButton(
         icon: const Icon(Icons.add_link),
@@ -525,16 +394,16 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
               Row(
                 children: <Widget>[
                   Expanded(
+                    flex: 2,
                     child: getLeftHeightStringWidget(),
-                    flex: 2,
                   ),
                   Expanded(
-                    child: getXAngleStringWidget(),
                     flex: 1,
+                    child: getXAngleStringWidget(),
                   ),
                   Expanded(
-                    child: getRightHeightStringWidget(),
                     flex: 2,
+                    child: getRightHeightStringWidget(),
                   ),
                 ],
               ),
@@ -551,16 +420,16 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
               Row(
                 children: <Widget>[
                   Expanded(
-                    child: getJockyHeightWidget(),
                     flex: 2,
+                    child: getJockyHeightWidget(),
                   ),
                   Expanded(
-                    child: getYAngleStringWidget(),
                     flex: 1,
+                    child: getYAngleStringWidget(),
                   ),
                   const Expanded(
-                    child: SizedBox(),
                     flex: 2,
+                    child: SizedBox(),
                   )
                 ],
               ),
@@ -586,7 +455,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
             onPressed: _navigateToBluetoothDevicesPage,
             child: const Text('Connect to Device'),
           )
-        : SizedBox();
+        : const SizedBox();
   }
 
   Widget getXAngleStringWidget() {
@@ -834,7 +703,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                   _caravanLength = double.parse(_caravanLengthController.text);
                   _sharedPreferences.setDouble('caravanWidth', _caravanWidth);
                   _sharedPreferences.setDouble('caravanLength', _caravanLength);
-                  print("Set Length $_caravanLength \t width: $_caravanWidth");
+                  debugPrint(
+                      "Set Length $_caravanLength \t width: $_caravanWidth");
                 } catch (e) {
                   return;
                 }
@@ -1051,112 +921,18 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   }
 
   Future<void> _showDFUDialog() async {
-    dfuUploadProgress = 0.0;
     return showDialog<void>(
       context: context,
       barrierDismissible: false, // user must tap button!
+
       builder: (BuildContext context) {
-        return FractionallySizedBox(
+        return StatefulBuilder(builder: (context, setState) {
+          return const FractionallySizedBox(
             widthFactor: 0.8,
             heightFactor: 0.9,
-            child: Column(
-              children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  color: Colors.lightBlue,
-                  width: 400,
-                  child: const Text(
-                    "DFU Update",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      height: 1,
-                      fontSize: 30,
-                      color: Colors.white,
-                      decoration: TextDecoration.none,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      color: Colors.white,
-                      width: 400,
-                      child: Text(
-                        "Downloading",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 20,
-                            color: Colors.black54,
-                            fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.none),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      color: Colors.white,
-                      width: 400,
-                      child: Text(
-                        "Uploading",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 20,
-                            color: Colors.black54,
-                            fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.none),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      color: Colors.white,
-                      width: 400,
-                      child: LinearProgressIndicator(
-                        value: dfuUploadProgress,
-                        semanticsLabel: 'Linear progress indicator',
-                      ),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  color: Colors.white,
-                  width: 400,
-                  child: const Text(
-                    "DFU Update",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      height: 1,
-                      fontSize: 30,
-                      color: Colors.white,
-                      decoration: TextDecoration.none,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  color: Colors.white,
-                  width: 400,
-                  child: FilledButton(
-                    onPressed: () async {
-                      print("Getting link");
-                      String? link = await getLatestReleaseAssetLink();
-
-                      if (link != null) {
-                        print(link);
-
-                        await downloadLatestReleaseAsset();
-                      } else {
-                        print("Link not found");
-                      }
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('Start DFU'),
-                  ),
-                ),
-              ],
-            ));
+            child: DFUUpdatePage(),
+          );
+        });
       },
     );
   }
@@ -1165,37 +941,37 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     switch (selection) {
       case 1:
         {
-          print("Selection 1");
+          debugPrint("Selection 1");
           appData.deviceOrientation = 1;
           break;
         }
       case 2:
         {
-          print("Selection 2");
+          debugPrint("Selection 2");
           appData.deviceOrientation = 2;
           break;
         }
       case 3:
         {
-          print("Selection 3");
+          debugPrint("Selection 3");
           appData.deviceOrientation = 3;
           break;
         }
       case 4:
         {
-          print("Selection 4");
+          debugPrint("Selection 4");
           appData.deviceOrientation = 4;
           break;
         }
       case 5:
         {
-          print("Selection 5");
+          debugPrint("Selection 5");
           appData.deviceOrientation = 5;
           break;
         }
       case 6:
         {
-          print("Selection 6");
+          debugPrint("Selection 6");
           appData.deviceOrientation = 6;
           break;
         }
