@@ -127,7 +127,7 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                     visible:
                         currentUploadState != UploadState.UPLOAD_NOT_STARTED,
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(26),
                       color: Colors.transparent,
                       width: 400,
                       child: LinearProgressIndicator(

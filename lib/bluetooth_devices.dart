@@ -103,9 +103,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
   @override
   void initState() {
-    print("BUILDING!!!");
     super.initState();
-
     refreshPressed();
   }
 
