@@ -322,9 +322,10 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         builder: (BuildContext context) => const BluetoothDevices(
               title: "devices",
             ));
-    final result = await Navigator.of(context).push(bluetoothDevicesPageRoute);
+    final anglesStream =
+        await Navigator.of(context).push(bluetoothDevicesPageRoute);
 
-    result.listen((value) {
+    anglesStream.listen((value) {
       setState(() {
         if (value['xAngle'] != null) {
           _xAngle = value['xAngle'];
