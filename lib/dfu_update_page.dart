@@ -67,72 +67,84 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      child: Center(
-        child: Column(
-          children: <Widget>[
-            Container(
-              padding: const EdgeInsets.all(8),
-              color: Colors.lightBlue,
-              width: 400,
-              child: const Text(
-                "DFU Update",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  height: 1,
-                  fontSize: 30,
-                  color: Colors.white,
-                  decoration: TextDecoration.none,
+      child: Stack(
+        children: [
+          Column(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.all(8),
+                color: Colors.lightBlue,
+                width: 400,
+                child: const Text(
+                  "Firmware Update",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    height: 1,
+                    fontSize: 30,
+                    color: Colors.white,
+                    decoration: TextDecoration.none,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
-            ),
-            Column(
-              children: [
-                Visibility(
-                  visible: currentDownloadState !=
-                      DownloadState.DOWNLOAD_NOT_STARTED,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    color: Colors.white,
-                    width: 400,
-                    child: Text(
-                      DownloadStateToString[currentDownloadState]!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        color: Colors.black54,
+              Column(
+                children: [
+                  Visibility(
+                    visible: currentDownloadState !=
+                        DownloadState.DOWNLOAD_NOT_STARTED,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      color: Colors.white,
+                      width: 400,
+                      child: Text(
+                        DownloadStateToString[currentDownloadState]!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.black54,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                Visibility(
-                  visible: currentUploadState != UploadState.UPLOAD_NOT_STARTED,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    color: Colors.white,
-                    width: 400,
-                    child: Text(
-                      UploadStateToString[currentUploadState]!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        color: Colors.black54,
+                  Visibility(
+                    visible:
+                        currentUploadState != UploadState.UPLOAD_NOT_STARTED,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      color: Colors.white,
+                      width: 400,
+                      child: Text(
+                        UploadStateToString[currentUploadState]!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.black54,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  color: Colors.white,
-                  width: 400,
-                  child: LinearProgressIndicator(
-                    value: dfuUploadProgress,
-                    semanticsLabel: 'Linear progress indicator',
+                  Visibility(
+                    visible:
+                        currentUploadState != UploadState.UPLOAD_NOT_STARTED,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      color: Colors.white,
+                      width: 400,
+                      child: LinearProgressIndicator(
+                        value: dfuUploadProgress,
+                        semanticsLabel: 'Linear progress indicator',
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            Container(
+                ],
+              ),
+            ],
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
               padding: const EdgeInsets.all(8),
               color: Colors.white,
               width: 400,
@@ -150,10 +162,9 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                     });
                     String? link = await getLatestReleaseAssetLink();
 
-                    debugPrint(link);
-
                     if (link != null) {
-                      File? downloadedFile = await downloadLatestReleaseAsset();
+                      File? downloadedFile =
+                          await downloadLatestReleaseAsset(link);
                       setState(() {
                         currentDownloadState = DownloadState.DOWNLOAD_COMPLETE;
                       });
@@ -191,12 +202,12 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                     });
                     //Navigator.of(context).pop();
                   },
-                  child: const Text('Start DFU'),
+                  child: const Text('Start Firmware Update'),
                 ),
               ),
             ),
-          ],
-        ),
+          )
+        ],
       ),
     );
   }
@@ -302,22 +313,19 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
     return null;
   }
 
-  Future<File?> downloadLatestReleaseAsset() async {
-    final assetLink = await getLatestReleaseAssetLink();
+  Future<File?> downloadLatestReleaseAsset(String assetLink) async {
     File? downloadedFile;
-    if (assetLink != null) {
-      final tempDir = await getTemporaryDirectory();
-      final tempFilePath = '${tempDir.path}/trailer_leveler_application.zip';
+    final tempDir = await getTemporaryDirectory();
+    final tempFilePath = '${tempDir.path}/trailer_leveler_application.zip';
 
-      final response = await http.get(Uri.parse(assetLink));
+    final response = await http.get(Uri.parse(assetLink));
 
-      if (response.statusCode == 200) {
-        final file = File(tempFilePath);
-        await file.writeAsBytes(response.bodyBytes);
-        debugPrint("Download Completed");
-        // Delete the downloaded file after it's complete
-        downloadedFile = File(tempFilePath);
-      }
+    if (response.statusCode == 200) {
+      final file = File(tempFilePath);
+      await file.writeAsBytes(response.bodyBytes);
+      debugPrint("Download Completed");
+      // Delete the downloaded file after it's complete
+      downloadedFile = File(tempFilePath);
     }
 
     return downloadedFile;
