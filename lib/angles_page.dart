@@ -721,20 +721,24 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   }
 
   Future<void> _showDeviceOrientationDialog() async {
-    return showDialog<void>(
+    int? selectedOrientation = await showDialog<int>(
         context: context,
         barrierDismissible: false, // user must tap button!
         builder: (BuildContext context) {
           return StatefulBuilder(
             builder: (context, setState) {
-              return const FractionallySizedBox(
+              return FractionallySizedBox(
                 widthFactor: 0.8,
                 heightFactor: 0.9,
-                child: DeviceOrientationPage(),
+                child: DeviceOrientationPage(
+                    initialOrientation: appData.deviceOrientation),
               );
             },
           );
         });
+
+    appData.deviceOrientation = selectedOrientation!;
+    _sharedPreferences.setInt('deviceOrientation', selectedOrientation);
   }
 
   Future<void> _showDFUDialog() async {

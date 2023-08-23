@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:trailer_leveler_app/app_data.dart';
 
 class DeviceOrientationPage extends StatefulWidget {
-  const DeviceOrientationPage({super.key});
+  final int initialOrientation; // Add this field
+
+  const DeviceOrientationPage({Key? key, required this.initialOrientation})
+      : super(key: key);
 
   @override
   _DeviceOrientationPageState createState() => _DeviceOrientationPageState();
 }
 
 class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
+  int selectedOrientation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedOrientation = widget.initialOrientation;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -39,7 +49,7 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
                     child: InkWell(
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        color: appData.deviceOrientation == 1
+                        color: selectedOrientation == 1
                             ? Colors.blue
                             : Colors.white,
                         child: Image.asset('images/device-orientation-1.png',
@@ -56,7 +66,7 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
                     child: InkWell(
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        color: appData.deviceOrientation == 2
+                        color: selectedOrientation == 2
                             ? Colors.blue
                             : Colors.white,
                         child: Image.asset('images/device-orientation-2.png',
@@ -80,7 +90,7 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
                     child: InkWell(
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        color: appData.deviceOrientation == 3
+                        color: selectedOrientation == 3
                             ? Colors.blue
                             : Colors.white,
                         child: Image.asset('images/device-orientation-3.png',
@@ -97,7 +107,7 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
                     child: InkWell(
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        color: appData.deviceOrientation == 4
+                        color: selectedOrientation == 4
                             ? Colors.blue
                             : Colors.white,
                         child: Image.asset('images/device-orientation-4.png',
@@ -121,7 +131,7 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
                     child: InkWell(
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        color: appData.deviceOrientation == 5
+                        color: selectedOrientation == 5
                             ? Colors.blue
                             : Colors.white,
                         child: Image.asset('images/device-orientation-5.png',
@@ -138,7 +148,7 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
                     child: InkWell(
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        color: appData.deviceOrientation == 6
+                        color: selectedOrientation == 6
                             ? Colors.blue
                             : Colors.white,
                         child: Image.asset('images/device-orientation-6.png',
@@ -153,20 +163,15 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
               ],
             ),
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              color: Colors.white,
-              width: 400,
-              child: FilledButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Set Orientation'),
-              ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: Colors.white,
+            width: 400,
+            child: FilledButton(
+              onPressed: () {
+                Navigator.of(context).pop(selectedOrientation);
+              },
+              child: const Text('Set Orientation'),
             ),
           ),
         ],
@@ -179,8 +184,9 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
       case 1:
         {
           debugPrint("Selection 1");
+
           setState(() {
-            appData.deviceOrientation = 1;
+            selectedOrientation = 1;
           });
           break;
         }
@@ -188,7 +194,7 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
         {
           debugPrint("Selection 2");
           setState(() {
-            appData.deviceOrientation = 2;
+            selectedOrientation = 2;
           });
           break;
         }
@@ -196,7 +202,7 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
         {
           debugPrint("Selection 3");
           setState(() {
-            appData.deviceOrientation = 3;
+            selectedOrientation = 3;
           });
           break;
         }
@@ -204,7 +210,7 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
         {
           debugPrint("Selection 4");
           setState(() {
-            appData.deviceOrientation = 4;
+            selectedOrientation = 4;
           });
           break;
         }
@@ -212,7 +218,7 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
         {
           debugPrint("Selection 5");
           setState(() {
-            appData.deviceOrientation = 5;
+            selectedOrientation = 5;
           });
           break;
         }
@@ -220,7 +226,7 @@ class _DeviceOrientationPageState extends State<DeviceOrientationPage> {
         {
           debugPrint("Selection 6");
           setState(() {
-            appData.deviceOrientation = 6;
+            selectedOrientation = 6;
           });
           break;
         }
