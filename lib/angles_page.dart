@@ -292,6 +292,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
               selected: false,
               onTap: () async {
                 Navigator.pop(context);
+
                 _showDFUDialog();
               },
             ),

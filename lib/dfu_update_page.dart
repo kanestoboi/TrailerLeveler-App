@@ -94,7 +94,7 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                         DownloadState.DOWNLOAD_NOT_STARTED,
                     child: Container(
                       padding: const EdgeInsets.all(8),
-                      color: Colors.white,
+                      color: Colors.transparent,
                       width: 400,
                       child: Text(
                         DownloadStateToString[currentDownloadState]!,
@@ -111,7 +111,7 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                         currentUploadState != UploadState.UPLOAD_NOT_STARTED,
                     child: Container(
                       padding: const EdgeInsets.all(8),
-                      color: Colors.white,
+                      color: Colors.transparent,
                       width: 400,
                       child: Text(
                         UploadStateToString[currentUploadState]!,
@@ -128,7 +128,7 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                         currentUploadState != UploadState.UPLOAD_NOT_STARTED,
                     child: Container(
                       padding: const EdgeInsets.all(8),
-                      color: Colors.white,
+                      color: Colors.transparent,
                       width: 400,
                       child: LinearProgressIndicator(
                         value: dfuUploadProgress,
@@ -141,12 +141,12 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
             ],
           ),
           Positioned(
-            bottom: 0,
+            bottom: 60,
             left: 0,
             right: 0,
             child: Container(
               padding: const EdgeInsets.all(8),
-              color: Colors.white,
+              color: Colors.transparent,
               width: 400,
               child: Visibility(
                 visible: !dfuInProgress,
@@ -203,6 +203,25 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                     //Navigator.of(context).pop();
                   },
                   child: const Text('Start Firmware Update'),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              color: Colors.transparent,
+              width: 60,
+              child: Visibility(
+                visible: !dfuInProgress,
+                child: FilledButton(
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Close'),
                 ),
               ),
             ),
