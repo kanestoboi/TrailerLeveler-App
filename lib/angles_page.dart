@@ -61,10 +61,10 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     audioPlayer = AudioPlayer();
 
     //audioPlayer?.setPlayerMode(PlayerMode.lowLatency);
-    camperRear = Image.asset("images/camper_rear.png", width: 200);
+    camperRear = Image.asset("images/caravan_rear.png", width: 125);
     camperSide = Image.asset(
-      "images/camper_side.png",
-      width: 250,
+      "images/caravan_side.png",
+      width: 350,
     );
     super.initState();
   }

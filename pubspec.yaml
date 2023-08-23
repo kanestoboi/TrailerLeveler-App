@@ -73,6 +73,8 @@ flutter:
   assets:
   - images/camper_rear.png
   - images/camper_side.png
+  - images/caravan_rear.png
+  - images/caravan_side.png
   - images/device-orientation-1.png
   - images/device-orientation-2.png
   - images/device-orientation-3.png
