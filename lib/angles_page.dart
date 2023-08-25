@@ -292,16 +292,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
             ),
             ListTile(
               title: const Text(
-                'Settings',
-                maxLines: 1,
-              ),
-              selected: false,
-              onTap: () async {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              title: const Text(
                 'Update Device Firmware',
                 maxLines: 1,
               ),
