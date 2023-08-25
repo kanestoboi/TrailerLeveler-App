@@ -9,13 +9,13 @@ import 'package:collection/collection.dart'; // You have to add this manually, f
 
 import 'dart:math';
 
-const int _MPU6050MaxValue = 32767;
-const int _MPU6050MinValue = -32768;
-const int _ADXL355MaxValue = 262143;
-const int _ADXL355MinValue = -262144;
+const int MPU6050_MAX_VALUE = 32767;
+const int MPU6050_MIN_VALUE = -32768;
+const int ADXL355_MAX_VALUE = 262143;
+const int ADXL355_MIN_VALUE = -262144;
 
-const int _ADXL355DataLength = 12;
-const int _MPU6050DataLength = 6;
+const int ADXL355_DATA_LENGTH = 12;
+const int MPU6050_DATA_LENGTH = 6;
 
 // ignore: non_constant_identifier_names
 const double _RAD_TO_DEG = 57.296;
@@ -80,9 +80,13 @@ class BluetoothDevices extends StatefulWidget {
 class _BluetoothDevicesState extends State<BluetoothDevices> {
   final _devices = <BluetoothDevice>[];
 
+  StreamSubscription<List<ScanResult>>? scanResultsStreamSubscription;
+  StreamSubscription<List<int>>? accelerationCharacteristicStreamSubscription;
+
   @override
   dispose() async {
     FlutterBluePlus.stopScan();
+
     super.dispose();
   }
 
@@ -103,9 +107,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
   @override
   void initState() {
-    print("BUILDING!!!");
     super.initState();
-
     refreshPressed();
   }
 
@@ -143,17 +145,19 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
   }
 
   void refreshPressed() {
+    scanResultsStreamSubscription?.cancel();
     // Clear the devices in the discovered list
 
     // clear the ListView
     setState(() => {});
 
     // Listen to scan results
-    FlutterBluePlus.scanResults.listen((results) {
+    scanResultsStreamSubscription =
+        FlutterBluePlus.scanResults.listen((results) {
       // Add unique scan results to _devices list
       for (ScanResult r in results) {
         if (r.device.localName != '' && !_devices.contains(r.device)) {
-          print(
+          debugPrint(
               '${r.device.localName} found! rssi: ${r.rssi}, ID: ${r.device.remoteId}');
           _devices.add(r.device);
           setState(() => {});
@@ -161,11 +165,14 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       }
     });
 
-    print("starting scan");
-    FlutterBluePlus.startScan(timeout: const Duration(seconds: 8));
+    debugPrint("starting scan");
+    FlutterBluePlus.startScan(
+      timeout: const Duration(seconds: 8),
+    );
   }
 
   Future<void> connectToDevice(BluetoothDevice device) async {
+    accelerationCharacteristicStreamSubscription?.cancel();
     final _streamController = StreamController<Map<String, double>>();
 
     Stream<Map<String, double>> stream = _streamController.stream;
@@ -175,9 +182,9 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
         .connect(autoConnect: false)
         .timeout(const Duration(seconds: 5))
         .onError((error, stackTrace) {
-      print("${stackTrace.toString()}");
+      debugPrint("${stackTrace.toString()}");
 
-      print("${error.toString()}");
+      debugPrint("${error.toString()}");
       connected = false;
       Fluttertoast.showToast(
           msg: "Couldn't Connect to Device",
@@ -190,7 +197,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
     });
 
     if (!connected) {
-      print("Not Connected");
+      debugPrint("Not Connected");
       return;
     }
 
@@ -211,9 +218,9 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
         .firstWhereOrNull((service) => service.uuid == Guid(UART_SERVICE_UUID));
 
     if (accelerometerService == null) {
-      print("Accelerometer Service not found");
+      debugPrint("Accelerometer Service not found");
     } else {
-      print("Accelerometer Service found");
+      debugPrint("Accelerometer Service found");
     }
 
     accelerationDataCharacteristic = accelerometerService?.characteristics
@@ -247,8 +254,10 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
     await accelerationDataCharacteristic.setNotifyValue(true);
 
-    accelerationDataCharacteristic.lastValueStream.listen((value) async {
-      if (value.length == _ADXL355DataLength) {
+    accelerationCharacteristicStreamSubscription =
+        accelerationDataCharacteristic.lastValueStream.listen((value) async {
+      if (value.length == ADXL355_DATA_LENGTH) {
+        // The bytes are received in 32 bit little endian format so convert them into a numbers
         int accX = (value[3] << 24 | value[2] << 16 | value[1] << 8 | value[0]);
         int accY = (value[7] << 24 | value[6] << 16 | value[5] << 8 | value[4]);
         int accZ =
@@ -279,11 +288,11 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
         youtput = (0.9896 * youtput + 0.0104 * accY).round();
         zoutput = (0.9896 * zoutput + 0.0104 * accZ).round();
 
-        double xAng = map(accX, _ADXL355MinValue, _ADXL355MaxValue, -90, 90);
-        double yAng = map(accY, _ADXL355MinValue, _ADXL355MaxValue, -90, 90);
-        double zAng = map(accZ, _ADXL355MinValue, _ADXL355MaxValue, -90, 90);
+        double xAng = map(accX, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
+        double yAng = map(accY, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
+        double zAng = map(accZ, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
 
-        //print(
+        // debugPrint(
         //"x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
         AngleMeasurement angles = calculateAnglesFromDeviceOrientation(
             xAng, yAng, zAng, appData.deviceOrientation);
@@ -295,7 +304,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
         };
 
         _streamController.sink.add(obj);
-      } else if (value.length == _MPU6050DataLength) {
+      } else if (value.length == MPU6050_DATA_LENGTH) {
         int accX = (value[1] << 8 | value[0]);
         int accY = (value[3] << 8 | value[2]);
         int accZ = (value[5] << 8 | value[4]);
@@ -325,11 +334,14 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
         youtput = (0.9896 * youtput + 0.0104 * accY).round();
         zoutput = (0.9896 * zoutput + 0.0104 * accZ).round();
 
-        double xAng = map(xoutput, _MPU6050MinValue, _MPU6050MaxValue, -90, 90);
-        double yAng = map(youtput, _MPU6050MinValue, _MPU6050MaxValue, -90, 90);
-        double zAng = map(zoutput, _MPU6050MinValue, _MPU6050MaxValue, -90, 90);
+        double xAng =
+            map(xoutput, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
+        double yAng =
+            map(youtput, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
+        double zAng =
+            map(zoutput, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
 
-        //print(            "x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
+        // debugPrint(            "x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
 
         AngleMeasurement angles = calculateAnglesFromDeviceOrientation(
             xAng, yAng, zAng, appData.deviceOrientation);
@@ -348,37 +360,42 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       }
     }, cancelOnError: true);
 
-    device.connectionState.listen((connectionState) async {
+    // Declare the subscription variable
+    StreamSubscription<BluetoothConnectionState>? connectionStateSubscription;
+
+    // Start listening to the stream
+    connectionStateSubscription =
+        device.connectionState.listen((connectionState) async {
       switch (connectionState) {
         case BluetoothConnectionState.disconnected:
-          await device.disconnect();
-
           var obj = {
             "connected": 0.0,
           };
 
           _streamController.sink.add(obj);
 
-          print("DISCONNECTED!!!!!");
+          debugPrint("DISCONNECTED!!!!!");
+          // Cancel the subscription to stop listening
+          connectionStateSubscription?.cancel();
           break;
         default:
           break;
       }
     });
 
-    print("Looking for battery service");
+    debugPrint("Looking for battery service");
     BluetoothService? batterLevelService = services.firstWhereOrNull(
         (service) => service.uuid == Guid(BATTERY_LEVEL_SERVICE_UUID));
 
     if (batterLevelService == null) {
-      print("NO Service Found");
+      debugPrint("NO Service Found");
     } else {
-      print("Battery Service found");
+      debugPrint("Battery Service found");
     }
 
     var characteristics = batterLevelService?.characteristics;
     for (BluetoothCharacteristic c in characteristics!) {
-      print(c.uuid);
+      debugPrint(c.uuid.toString());
     }
 
     BluetoothCharacteristic? batterLevelCharacteristic =
@@ -397,7 +414,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
         _streamController.sink.add(obj);
       });
     } else {
-      print("Characteristic not found!!!");
+      debugPrint("Characteristic not found!!!");
     }
 
     Navigator.pop(context, stream);

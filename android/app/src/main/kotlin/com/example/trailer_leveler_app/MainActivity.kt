@@ -1,4 +1,4 @@
-package com.example.trailer_leveler_app
+package com.stoboi.trailer_leveler_app
 
 import io.flutter.embedding.android.FlutterActivity
 

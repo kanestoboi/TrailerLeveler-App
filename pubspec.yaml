@@ -43,10 +43,17 @@ dependencies:
   fluttertoast: ^8.1.2
   permission_handler: ^10.4.3
   audioplayers: ^5.1.0
+  http: ^1.1.0
+  nordic_dfu: 6.0.1
+  path_provider: ^2.0.2  
+
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  flutter_launcher_icons: "^0.13.1"
+
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -69,6 +76,8 @@ flutter:
   assets:
   - images/camper_rear.png
   - images/camper_side.png
+  - images/caravan_rear.png
+  - images/caravan_side.png
   - images/device-orientation-1.png
   - images/device-orientation-2.png
   - images/device-orientation-3.png
@@ -102,3 +111,20 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "images/caravan_rear.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  web:
+    generate: true
+    image_path: "images/caravan_rear.png"
+    background_color: "#0175C2"
+    theme_color: "#0175C2"
+  windows:
+    generate: true
+    image_path: "images/caravan_rear.png"
+    icon_size: 48 # min:48, max:256, default: 48
+  macos:
+    generate: true
+    image_path: "images/caravan_rear.png"

@@ -11,6 +11,8 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 import 'package:trailer_leveler_app/app_data.dart';
+import 'package:trailer_leveler_app/dfu_update_page.dart';
+import 'package:trailer_leveler_app/device_orientation_page.dart';
 
 class AnglesPage extends StatefulWidget {
   const AnglesPage({Key? key}) : super(key: key);
@@ -19,7 +21,7 @@ class AnglesPage extends StatefulWidget {
   PageState createState() => PageState();
 }
 
-class PageState extends State<AnglesPage> {
+class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   AudioPlayer? audioPlayer;
   Timer? loopTimer;
   bool isPlaying = false;
@@ -57,11 +59,12 @@ class PageState extends State<AnglesPage> {
   @override
   void initState() {
     audioPlayer = AudioPlayer();
+
     //audioPlayer?.setPlayerMode(PlayerMode.lowLatency);
-    camperRear = Image.asset("images/camper_rear.png", width: 200);
+    camperRear = Image.asset("images/caravan_rear.png", width: 125);
     camperSide = Image.asset(
-      "images/camper_side.png",
-      width: 250,
+      "images/caravan_side.png",
+      width: 350,
     );
     super.initState();
   }
@@ -91,24 +94,24 @@ class PageState extends State<AnglesPage> {
     }
 
     if (!isPlaying) {
-      print("Playing");
+      debugPrint("Playing");
       await audioPlayer?.stop();
 
       try {
         await audioPlayer?.play(
             AssetSource('sounds/beep1.wav')); // will immediately start playing
       } on TimeoutException catch (e) {
-        print('TimeoutException: ${e.message}');
+        debugPrint('TimeoutException: ${e.message}');
       }
 
       isPlaying = true;
 
       int interval =
           100 + ((_xAngle - _xAngleCalibration) * 100.0).toInt().abs();
-      print("interval: $interval");
+      debugPrint("interval: $interval");
 
       loopTimer = Timer(Duration(milliseconds: interval), () async {
-        print("Stopped");
+        debugPrint("Stopped");
         await audioPlayer?.stop();
         isPlaying = false;
         loopAudio(); // Start the loop again
@@ -281,6 +284,18 @@ class PageState extends State<AnglesPage> {
                 Navigator.pop(context);
               },
             ),
+            ListTile(
+              title: const Text(
+                'Update Device Firmware',
+                maxLines: 1,
+              ),
+              selected: false,
+              onTap: () async {
+                Navigator.pop(context);
+
+                _showDFUDialog();
+              },
+            ),
           ],
         ),
       ),
@@ -307,9 +322,10 @@ class PageState extends State<AnglesPage> {
         builder: (BuildContext context) => const BluetoothDevices(
               title: "devices",
             ));
-    final result = await Navigator.of(context).push(bluetoothDevicesPageRoute);
+    final anglesStream =
+        await Navigator.of(context).push(bluetoothDevicesPageRoute);
 
-    result.listen((value) {
+    anglesStream.listen((value) {
       setState(() {
         if (value['xAngle'] != null) {
           _xAngle = value['xAngle'];
@@ -381,16 +397,16 @@ class PageState extends State<AnglesPage> {
               Row(
                 children: <Widget>[
                   Expanded(
+                    flex: 2,
                     child: getLeftHeightStringWidget(),
-                    flex: 2,
                   ),
                   Expanded(
-                    child: getXAngleStringWidget(),
                     flex: 1,
+                    child: getXAngleStringWidget(),
                   ),
                   Expanded(
-                    child: getRightHeightStringWidget(),
                     flex: 2,
+                    child: getRightHeightStringWidget(),
                   ),
                 ],
               ),
@@ -407,16 +423,16 @@ class PageState extends State<AnglesPage> {
               Row(
                 children: <Widget>[
                   Expanded(
-                    child: getJockyHeightWidget(),
                     flex: 2,
+                    child: getJockyHeightWidget(),
                   ),
                   Expanded(
-                    child: getYAngleStringWidget(),
                     flex: 1,
+                    child: getYAngleStringWidget(),
                   ),
                   const Expanded(
-                    child: SizedBox(),
                     flex: 2,
+                    child: SizedBox(),
                   )
                 ],
               ),
@@ -442,7 +458,7 @@ class PageState extends State<AnglesPage> {
             onPressed: _navigateToBluetoothDevicesPage,
             child: const Text('Connect to Device'),
           )
-        : SizedBox();
+        : const SizedBox();
   }
 
   Widget getXAngleStringWidget() {
@@ -618,33 +634,6 @@ class PageState extends State<AnglesPage> {
         ));
   }
 
-  Future<void> handleClick(String value) async {
-    switch (value) {
-      case 'Calibrate':
-        {
-          await _showCalibrationDialog();
-          _xAngleCalibration = _xAngle;
-          _yAngleCalibration = _yAngle;
-          _zAngleCalibration = _zAngle;
-          _sharedPreferences.setDouble('xAngleCalibration', _xAngleCalibration);
-          _sharedPreferences.setDouble('yAngleCalibration', _yAngleCalibration);
-          _sharedPreferences.setDouble('zAngleCalibration', _zAngleCalibration);
-
-          break;
-        }
-      case 'Set Caravan Dimensions':
-        {
-          await _showDimensionsDialog();
-          break;
-        }
-      case 'Set Device Orientation':
-        {
-          await _showDeviceOrientationDialog();
-          break;
-        }
-    }
-  }
-
   Future<void> _showCalibrationDialog() async {
     return showDialog<void>(
       context: context,
@@ -717,7 +706,8 @@ class PageState extends State<AnglesPage> {
                   _caravanLength = double.parse(_caravanLengthController.text);
                   _sharedPreferences.setDouble('caravanWidth', _caravanWidth);
                   _sharedPreferences.setDouble('caravanLength', _caravanLength);
-                  print("Set Length $_caravanLength \t width: $_caravanWidth");
+                  debugPrint(
+                      "Set Length $_caravanLength \t width: $_caravanWidth");
                 } catch (e) {
                   return;
                 }
@@ -732,254 +722,39 @@ class PageState extends State<AnglesPage> {
   }
 
   Future<void> _showDeviceOrientationDialog() async {
-    Color _colorContainer1 =
-        appData.deviceOrientation == 1 ? Colors.blue : Colors.white;
-    Color _colorContainer2 =
-        appData.deviceOrientation == 2 ? Colors.blue : Colors.white;
-    Color _colorContainer3 =
-        appData.deviceOrientation == 3 ? Colors.blue : Colors.white;
-    Color _colorContainer4 =
-        appData.deviceOrientation == 4 ? Colors.blue : Colors.white;
-    Color _colorContainer5 =
-        appData.deviceOrientation == 5 ? Colors.blue : Colors.white;
-    Color _colorContainer6 =
-        appData.deviceOrientation == 6 ? Colors.blue : Colors.white;
+    int? selectedOrientation = await showDialog<int>(
+        context: context,
+        barrierDismissible: false, // user must tap button!
+        builder: (BuildContext context) {
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return FractionallySizedBox(
+                widthFactor: 0.8,
+                heightFactor: 0.9,
+                child: DeviceOrientationPage(
+                    initialOrientation: appData.deviceOrientation),
+              );
+            },
+          );
+        });
+
+    appData.deviceOrientation = selectedOrientation!;
+    _sharedPreferences.setInt('deviceOrientation', selectedOrientation);
+  }
+
+  Future<void> _showDFUDialog() async {
     return showDialog<void>(
       context: context,
       barrierDismissible: false, // user must tap button!
       builder: (BuildContext context) {
-        return FractionallySizedBox(
+        return StatefulBuilder(builder: (context, setState) {
+          return const FractionallySizedBox(
             widthFactor: 0.8,
-            heightFactor: 0.9,
-            child: Column(
-              children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  color: Colors.lightBlue,
-                  width: 400,
-                  child: const Text(
-                    "Front Direction \u2B09",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      height: 1,
-                      fontSize: 30,
-                      color: Colors.white,
-                      decoration: TextDecoration.none,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Expanded(
-                        child: Material(
-                          child: InkWell(
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              color: _colorContainer1,
-                              child: Image.asset(
-                                  'images/device-orientation-1.png',
-                                  width: 100),
-                            ),
-                            onTap: () {
-                              handleDeviceOrientationSelection(1);
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Material(
-                          child: InkWell(
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              color: _colorContainer2,
-                              child: Image.asset(
-                                  'images/device-orientation-2.png',
-                                  width: 100),
-                            ),
-                            onTap: () {
-                              handleDeviceOrientationSelection(2);
-                              _colorContainer1 = Colors.white;
-                              _colorContainer2 = Colors.blue;
-                              setState(() {});
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Expanded(
-                        child: Material(
-                          child: InkWell(
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              color: _colorContainer3,
-                              child: Image.asset(
-                                  'images/device-orientation-3.png',
-                                  width: 100),
-                            ),
-                            onTap: () {
-                              handleDeviceOrientationSelection(3);
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Material(
-                          child: InkWell(
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              color: _colorContainer4,
-                              child: Image.asset(
-                                  'images/device-orientation-4.png',
-                                  width: 100),
-                            ),
-                            onTap: () {
-                              handleDeviceOrientationSelection(4);
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Expanded(
-                        child: Material(
-                          child: InkWell(
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              color: _colorContainer5,
-                              child: Image.asset(
-                                  'images/device-orientation-5.png',
-                                  width: 100),
-                            ),
-                            onTap: () {
-                              handleDeviceOrientationSelection(5);
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Material(
-                          child: InkWell(
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              color: _colorContainer6,
-                              child: Image.asset(
-                                  'images/device-orientation-6.png',
-                                  width: 100),
-                            ),
-                            onTap: () {
-                              handleDeviceOrientationSelection(6);
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  color: Colors.lightBlue,
-                  width: 400,
-                  child: TextButton(
-                    style: ButtonStyle(
-                      foregroundColor:
-                          MaterialStateProperty.all<Color>(Colors.blue),
-                      textStyle:
-                          MaterialStateProperty.all<TextStyle>(const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        height: 1,
-                        fontSize: 30,
-                        color: Colors.white,
-                        decoration: TextDecoration.none,
-                      )),
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text(
-                      'Set Orientation',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        height: 1,
-                        fontSize: 26,
-                        color: Colors.white,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ));
+            heightFactor: 0.4,
+            child: DFUUpdatePage(),
+          );
+        });
       },
     );
-  }
-
-  void handleDeviceOrientationSelection(int selection) {
-    switch (selection) {
-      case 1:
-        {
-          print("Selection 1");
-          appData.deviceOrientation = 1;
-          break;
-        }
-      case 2:
-        {
-          print("Selection 2");
-          appData.deviceOrientation = 2;
-          break;
-        }
-      case 3:
-        {
-          print("Selection 3");
-          appData.deviceOrientation = 3;
-          break;
-        }
-      case 4:
-        {
-          print("Selection 4");
-          appData.deviceOrientation = 4;
-          break;
-        }
-      case 5:
-        {
-          print("Selection 5");
-          appData.deviceOrientation = 5;
-          break;
-        }
-      case 6:
-        {
-          print("Selection 6");
-          appData.deviceOrientation = 6;
-          break;
-        }
-    }
-    _sharedPreferences.setInt('deviceOrientation', selection);
-    Fluttertoast.showToast(
-        msg: "Orientation Changed",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.CENTER,
-        timeInSecForIosWeb: 1,
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-        fontSize: 16.0);
   }
 }
