@@ -46,6 +46,7 @@ dependencies:
   http: ^1.1.0
   nordic_dfu: 6.0.1
   path_provider: ^2.0.2  
+  flutter_svg: ^2.0.7
 
 
 dev_dependencies:
@@ -86,6 +87,10 @@ flutter:
   - images/device-orientation-6.png
 
   - assets/sounds/beep1.wav
+
+  - assets/ruler-solid.svg
+  - assets/arrows-spin-solid.svg
+  - assets/sliders-solid.svg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
 

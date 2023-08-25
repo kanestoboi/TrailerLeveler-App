@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:trailer_leveler_app/bluetooth_devices.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
@@ -240,12 +242,24 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
               decoration: BoxDecoration(
                 color: Colors.blue,
               ),
-              child: Text('Drawer Header'),
+              child: Text(''),
             ),
             ListTile(
-              title: const Text(
-                'Calibrate',
-                maxLines: 1,
+              title: const Row(
+                children: [
+                  SizedBox(
+                    width: 25,
+                    height: 25,
+                    child: Icon(Icons.my_location, color: Colors.black54),
+                  ),
+                  // Icon you want to add
+                  SizedBox(
+                      width: 8), // Add some spacing between the icon and text
+                  Text(
+                    'Calibrate',
+                    maxLines: 1,
+                  ),
+                ],
               ),
               selected: false,
               onTap: () async {
@@ -266,9 +280,30 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
               },
             ),
             ListTile(
-              title: const Text(
-                'Set Caravan Dimensions',
-                maxLines: 1,
+              title: Row(
+                children: [
+                  SizedBox(
+                    width: 25,
+                    height: 25,
+                    child: ColorFiltered(
+                      colorFilter: const ColorFilter.mode(
+                        Colors.black54, // Replace with the color you want
+                        BlendMode.srcIn,
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/ruler-solid.svg', // Replace with your SVG image path
+                        width: 18, // Adjust the width as needed
+                        height: 18, // Adjust the height as needed
+                      ),
+                    ),
+                  ), // Icon you want to add // Icon you want to add
+                  const SizedBox(
+                      width: 8), // Add some spacing between the icon and text
+                  const Text(
+                    'Set Caravan Dimensions',
+                    maxLines: 1,
+                  ),
+                ],
               ),
               selected: false,
               onTap: () async {
@@ -278,9 +313,30 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
               },
             ),
             ListTile(
-              title: const Text(
-                'Set Device Orientation',
-                maxLines: 1,
+              title: Row(
+                children: [
+                  SizedBox(
+                    width: 25,
+                    height: 25,
+                    child: ColorFiltered(
+                      colorFilter: const ColorFilter.mode(
+                        Colors.black54, // Replace with the color you want
+                        BlendMode.srcIn,
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/arrows-spin-solid.svg', // Replace with your SVG image path
+                        width: 20, // Adjust the width as needed
+                        height: 20, // Adjust the height as needed
+                      ),
+                    ),
+                  ), // Icon you want to add
+                  const SizedBox(
+                      width: 8), // Add some spacing between the icon and text
+                  const Text(
+                    'Set Device Orientation',
+                    maxLines: 1,
+                  ),
+                ],
               ),
               selected: false,
               onTap: () async {
@@ -290,9 +346,21 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
               },
             ),
             ListTile(
-              title: const Text(
-                'Update Device Firmware',
-                maxLines: 1,
+              title: const Row(
+                children: [
+                  SizedBox(
+                    width: 25,
+                    height: 25,
+                    child: Icon(Icons.keyboard_double_arrow_up_outlined,
+                        color: Colors.black54),
+                  ), // Icon you want to add
+                  SizedBox(
+                      width: 8), // Add some spacing between the icon and text
+                  Text(
+                    'Update Device Firmware',
+                    maxLines: 1,
+                  ),
+                ],
               ),
               selected: false,
               onTap: () async {
@@ -838,9 +906,18 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           content: const SingleChildScrollView(),
           actions: <Widget>[
             TextButton(
-              child: const Text('Overwrite last height'),
+              child: const Text('Overwrite previous height'),
               onPressed: () {
                 saveHitchAngle();
+                Fluttertoast.showToast(
+                  msg: 'Hitch height saved',
+                  toastLength: Toast.LENGTH_SHORT,
+                  gravity: ToastGravity.BOTTOM,
+                  backgroundColor: Colors.grey,
+                  textColor: Colors.white,
+                  fontSize: 16.0,
+                );
+
                 Navigator.of(context).pop();
               },
             ),
