@@ -166,7 +166,9 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
     });
 
     debugPrint("starting scan");
-    FlutterBluePlus.startScan(timeout: const Duration(seconds: 8));
+    FlutterBluePlus.startScan(
+      timeout: const Duration(seconds: 8),
+    );
   }
 
   Future<void> connectToDevice(BluetoothDevice device) async {

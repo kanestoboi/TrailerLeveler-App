@@ -153,6 +153,7 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                 child: FilledButton(
                   onPressed: () async {
                     setState(() {
+                      dfuInProgress = true;
                       currentDownloadState = DownloadState.DOWNLOAD_NOT_STARTED;
                       currentUploadState = UploadState.UPLOAD_NOT_STARTED;
                     });
