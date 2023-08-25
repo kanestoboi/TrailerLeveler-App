@@ -490,14 +490,62 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     return pi / 180 * (getYAngleAdjusted()) * -1;
   }
 
+  List<bool> isSelected = [
+    false,
+    true
+  ]; // Initialize based on currentLevelingMode value
+
+  List<Widget> _buildToggleButtons() {
+    return [
+      ElevatedButton(
+        onPressed: () {
+          setState(() {
+            isSelected = [true, false];
+            toggleLevelingMode();
+          });
+        },
+        style: ButtonStyle(
+          backgroundColor: MaterialStateProperty.all<Color>(
+            isSelected[0] ? Colors.green : Colors.grey,
+          ),
+        ),
+        child: const Text('Adjest to Level'),
+      ),
+      ElevatedButton(
+        onPressed: () {
+          setState(() {
+            isSelected = [false, true];
+            toggleLevelingMode();
+          });
+        },
+        style: ButtonStyle(
+          backgroundColor: MaterialStateProperty.all<Color>(
+            isSelected[1] ? Colors.green : Colors.grey,
+          ),
+        ),
+        child: const Text('Adjust to Saved Height'),
+      ),
+    ];
+  }
+
   Widget toggleLevelingModeButtonWidget() {
     return deviceConnected
-        ? FilledButton(
-            onPressed: toggleLevelingMode,
-            child: Text(
-              currentLevelingMode == LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT
-                  ? 'Agjust Height to Level'
-                  : 'Adjust height to Saved Hitch Height',
+        ? Center(
+            child: ToggleButtons(
+              color: Colors.transparent,
+              selectedColor: Colors.transparent,
+              fillColor: Colors.transparent,
+              borderColor: Colors.transparent,
+              selectedBorderColor: Colors.transparent,
+              isSelected: isSelected,
+              onPressed: (int index) {
+                setState(() {
+                  isSelected =
+                      List.generate(isSelected.length, (i) => i == index);
+                  toggleLevelingMode();
+                });
+              },
+              children: _buildToggleButtons(),
             ),
           )
         : const SizedBox();
@@ -506,7 +554,9 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   Widget getSaveHitchHeightWidget() {
     return deviceConnected
         ? FilledButton(
-            onPressed: saveHitchAngle,
+            onPressed: () async {
+              await _showSaveHitchHeightConfirmationDialog();
+            },
             child: const Text('Save Hitch Height'),
           )
         : const SizedBox();
@@ -743,6 +793,42 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           actions: <Widget>[
             TextButton(
               child: const Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showSaveHitchHeightConfirmationDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+              'This action will overwrite any previous height saved'),
+          content: const SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('This will calibrate the sensor.'),
+                Text('Make sure that the device is level and press OK.'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Overwrite'),
+              onPressed: () {
+                saveHitchAngle();
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Cancel'),
               onPressed: () {
                 Navigator.of(context).pop();
               },
