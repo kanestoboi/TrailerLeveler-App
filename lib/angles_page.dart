@@ -14,6 +14,13 @@ import 'package:trailer_leveler_app/app_data.dart';
 import 'package:trailer_leveler_app/dfu_update_page.dart';
 import 'package:trailer_leveler_app/device_orientation_page.dart';
 
+double savedheight = 0;
+
+enum LevelingMode {
+  LEVEL_TO_LEVEL,
+  LEVEL_TO_SAVED_HITCH_HEIGHT,
+}
+
 class AnglesPage extends StatefulWidget {
   const AnglesPage({Key? key}) : super(key: key);
 
@@ -33,6 +40,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   double _yAngle = 0.0;
   double _zAngle = 0.0;
   double? _batteryLevel;
+  double _savedHitchAngle =
+      0; // The angle the device it at when hitch height is saved
 
   double _caravanWidth = 0.0001;
   double _caravanLength = 0.0001;
@@ -55,6 +64,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
   // save in the state for caching!
   late SharedPreferences _sharedPreferences;
+
+  LevelingMode currentLevelingMode = LevelingMode.LEVEL_TO_LEVEL;
 
   @override
   void initState() {
@@ -140,6 +151,9 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     int orientationSharedPreferences =
         _sharedPreferences.getInt('deviceOrientation') ?? 1;
 
+    double? hitchHeightAngleSharedPreferences =
+        _sharedPreferences.getDouble('hitchHeightAngle') ?? 0;
+
     _xAngleCalibration = xAngleSharedPreferences;
     _yAngleCalibration = yAngleSharedPreferences;
     _zAngleCalibration = zAngleSharedPreferences;
@@ -153,6 +167,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     }
 
     appData.deviceOrientation = orientationSharedPreferences;
+
+    _savedHitchAngle = hitchHeightAngleSharedPreferences;
   }
 
   @override
@@ -415,7 +431,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                     16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
                 child: Center(
                   child: Transform.rotate(
-                    angle: pi / 180 * (_yAngle - _yAngleCalibration) * -1,
+                    angle: getJockeyImageAngle(),
                     child: camperSide,
                   ),
                 ),
@@ -448,8 +464,71 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                   const EdgeInsets.all(16.0), // Adjust the padding as needed
               child: getConnectToDeviceWidget()),
         ),
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Padding(
+              padding:
+                  const EdgeInsets.all(16.0), // Adjust the padding as needed
+              child: toggleLevelingModeButtonWidget()),
+        ),
+        Positioned(
+          bottom: 60,
+          left: 0,
+          right: 0,
+          child: Padding(
+              padding:
+                  const EdgeInsets.all(16.0), // Adjust the padding as needed
+              child: getSaveHitchHeightWidget()),
+        )
       ],
     );
+  }
+
+  double getJockeyImageAngle() {
+    return pi / 180 * (getYAngleAdjusted()) * -1;
+  }
+
+  Widget toggleLevelingModeButtonWidget() {
+    return deviceConnected
+        ? FilledButton(
+            onPressed: toggleLevelingMode,
+            child: Text(
+              currentLevelingMode == LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT
+                  ? 'Agjust Height to Level'
+                  : 'Adjust height to Saved Hitch Height',
+            ),
+          )
+        : const SizedBox();
+  }
+
+  Widget getSaveHitchHeightWidget() {
+    return deviceConnected
+        ? FilledButton(
+            onPressed: saveHitchAngle,
+            child: const Text('Save Hitch Height'),
+          )
+        : const SizedBox();
+  }
+
+  void toggleLevelingMode() {
+    setState(() {
+      switch (currentLevelingMode) {
+        case LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT:
+          currentLevelingMode = LevelingMode.LEVEL_TO_LEVEL;
+          break;
+        default:
+          currentLevelingMode = LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT;
+      }
+    });
+  }
+
+  void saveHitchAngle() {
+    setState(() {
+      _savedHitchAngle = _yAngle - _yAngleCalibration;
+      _sharedPreferences.setDouble('hitchHeightAngle', _savedHitchAngle);
+    });
   }
 
   Widget getConnectToDeviceWidget() {
@@ -489,8 +568,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     String angleString;
     Color textColor = Colors.black54;
 
-    double adjustedAngle = (_yAngle - _yAngleCalibration);
-    double roundedAngle = (adjustedAngle / 0.05).round() * 0.05;
+    double roundedAngle = (getYAngleAdjusted() / 0.05).round() * 0.05;
 
     angleString = '${format.format(roundedAngle)}°';
 
@@ -503,6 +581,10 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         fontWeight: FontWeight.bold,
       ),
     );
+  }
+
+  double getYAngleAdjusted() {
+    return _yAngle - _yAngleCalibration;
   }
 
   Widget getLeftHeightStringWidget() {
@@ -586,9 +668,18 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   }
 
   Widget getJockyHeightWidget() {
-    double height = double.parse(
-        (tan((_yAngle - _yAngleCalibration) * pi / 180.0) * _caravanLength)
-            .toStringAsFixed(3));
+    double height;
+    if (currentLevelingMode == LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT) {
+      height = double.parse(
+          (tan((getYAngleAdjusted() - _savedHitchAngle) * pi / 180.0) *
+                  _caravanLength *
+                  -1)
+              .toStringAsFixed(3));
+    } else {
+      height = double.parse(
+          (tan((getYAngleAdjusted()) * pi / 180.0) * _caravanLength)
+              .toStringAsFixed(3));
+    }
 
     var format = NumberFormat("##0.000", "en_US");
 
