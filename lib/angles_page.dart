@@ -7,7 +7,6 @@ import 'package:trailer_leveler_app/bluetooth_devices.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 import 'package:trailer_leveler_app/app_data.dart';
