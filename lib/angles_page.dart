@@ -853,7 +853,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
             ),
           ],
         );
-        ;
       },
     );
   }
