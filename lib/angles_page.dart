@@ -481,8 +481,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   }
 
   List<bool> isSelected = [
-    false,
-    true
+    true,
+    false
   ]; // Initialize based on currentLevelingMode value
 
   List<Widget> _buildToggleButtons() {
@@ -820,19 +820,26 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
       barrierDismissible: false, // user must tap button!
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text(
-              'This action will overwrite any previous height saved'),
-          content: const SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                Text('This will calibrate the sensor.'),
-                Text('Make sure that the device is level and press OK.'),
-              ],
-            ),
+          title: const Row(
+            children: [
+              Icon(
+                Icons.warning,
+                color: Colors.orangeAccent,
+                size: 50,
+              ), // Warning icon
+              SizedBox(width: 8), // Add some spacing between the icon and text
+              Expanded(
+                child: Text(
+                  'This action will overwrite any previous height saved',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
           ),
+          content: const SingleChildScrollView(),
           actions: <Widget>[
             TextButton(
-              child: const Text('Overwrite'),
+              child: const Text('Overwrite last height'),
               onPressed: () {
                 saveHitchAngle();
                 Navigator.of(context).pop();
@@ -846,6 +853,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
             ),
           ],
         );
+        ;
       },
     );
   }
