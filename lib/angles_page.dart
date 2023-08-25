@@ -599,7 +599,12 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     double adjustedAngle = (_xAngle - _xAngleCalibration);
     double roundedAngle = (adjustedAngle / 0.05).round() * 0.05;
 
-    angleString = '${format.format(roundedAngle)}°';
+    if ((currentLevelingMode == LevelingMode.LEVEL_TO_LEVEL)) {
+      angleString = '${format.format(roundedAngle)}°';
+    } else {
+      angleString = '0.00°';
+      textColor = Colors.black54;
+    }
 
     return Text(
       angleString,
@@ -640,7 +645,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   Widget getLeftHeightStringWidget() {
     double height;
 
-    if (horizontalReference != 'left') {
+    if (horizontalReference == 'right') {
       height = double.parse(
           (tan((_xAngle - _xAngleCalibration) * pi / 180.0) * _caravanWidth)
               .toStringAsFixed(3));
@@ -653,13 +658,18 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     String heightString;
     Color textColor = Colors.red;
 
-    if (height > 0) {
-      heightString = '$downArrow ${format.format(height.abs())}';
-    } else if (height < 0) {
-      heightString = '$upArrow ${format.format(height.abs())}';
+    if ((currentLevelingMode == LevelingMode.LEVEL_TO_LEVEL)) {
+      if (height > 0) {
+        heightString = '$downArrow ${format.format(height.abs())}';
+      } else if (height < 0) {
+        heightString = '$upArrow ${format.format(height.abs())}';
+      } else {
+        heightString = '0.000';
+        textColor = Colors.green;
+      }
     } else {
       heightString = '0.000';
-      textColor = Colors.green;
+      textColor = Colors.black54;
     }
 
     return GestureDetector(
@@ -668,11 +678,14 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           horizontalReference = 'right';
         });
       },
-      child: Text(
-        heightString,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-            fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+      child: Container(
+        height: 50, // Set the desired fixed height
+        child: Text(
+          heightString,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -680,7 +693,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   Widget getRightHeightStringWidget() {
     double height;
 
-    if (horizontalReference != 'right') {
+    if (horizontalReference == 'left') {
       height = double.parse(
           (tan((_xAngle - _xAngleCalibration) * pi / 180.0) * _caravanWidth)
               .toStringAsFixed(3));
@@ -693,13 +706,18 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     String heightString;
     Color textColor = Colors.red;
 
-    if (height < 0) {
-      heightString = '$downArrow ${format.format(height.abs())}';
-    } else if (height > 0) {
-      heightString = '$upArrow ${format.format(height.abs())}';
+    if ((currentLevelingMode == LevelingMode.LEVEL_TO_LEVEL)) {
+      if (height < 0) {
+        heightString = '$downArrow ${format.format(height.abs())}';
+      } else if (height > 0) {
+        heightString = '$upArrow ${format.format(height.abs())}';
+      } else {
+        heightString = '0.000';
+        textColor = Colors.green;
+      }
     } else {
       heightString = '0.000';
-      textColor = Colors.green;
+      textColor = Colors.black54;
     }
 
     return GestureDetector(
@@ -708,11 +726,14 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           horizontalReference = 'left';
         });
       },
-      child: Text(
-        heightString,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-            fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+      child: Container(
+        height: 50, // Set the desired fixed height
+        child: Text(
+          heightString,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
