@@ -949,7 +949,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
-                const Text('Caravan Width (m)'),
+                const Text('Caravan Track Width (m)'),
                 TextField(
                   keyboardType: TextInputType.number,
                   controller: _caravanWidthController,
