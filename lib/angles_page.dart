@@ -3,16 +3,24 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:trailer_leveler_app/bluetooth_devices.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 import 'package:trailer_leveler_app/app_data.dart';
 import 'package:trailer_leveler_app/dfu_update_page.dart';
 import 'package:trailer_leveler_app/device_orientation_page.dart';
+
+double savedheight = 0;
+
+enum LevelingMode {
+  LEVEL_TO_LEVEL,
+  LEVEL_TO_SAVED_HITCH_HEIGHT,
+}
 
 class AnglesPage extends StatefulWidget {
   const AnglesPage({Key? key}) : super(key: key);
@@ -33,6 +41,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   double _yAngle = 0.0;
   double _zAngle = 0.0;
   double? _batteryLevel;
+  double _savedHitchAngle =
+      0; // The angle the device it at when hitch height is saved
 
   double _caravanWidth = 0.0001;
   double _caravanLength = 0.0001;
@@ -55,6 +65,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
   // save in the state for caching!
   late SharedPreferences _sharedPreferences;
+
+  LevelingMode currentLevelingMode = LevelingMode.LEVEL_TO_LEVEL;
 
   @override
   void initState() {
@@ -140,6 +152,9 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     int orientationSharedPreferences =
         _sharedPreferences.getInt('deviceOrientation') ?? 1;
 
+    double? hitchHeightAngleSharedPreferences =
+        _sharedPreferences.getDouble('hitchHeightAngle') ?? 0;
+
     _xAngleCalibration = xAngleSharedPreferences;
     _yAngleCalibration = yAngleSharedPreferences;
     _zAngleCalibration = zAngleSharedPreferences;
@@ -153,6 +168,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     }
 
     appData.deviceOrientation = orientationSharedPreferences;
+
+    _savedHitchAngle = hitchHeightAngleSharedPreferences;
   }
 
   @override
@@ -225,12 +242,24 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
               decoration: BoxDecoration(
                 color: Colors.blue,
               ),
-              child: Text('Drawer Header'),
+              child: Text(''),
             ),
             ListTile(
-              title: const Text(
-                'Calibrate',
-                maxLines: 1,
+              title: const Row(
+                children: [
+                  SizedBox(
+                    width: 25,
+                    height: 25,
+                    child: Icon(Icons.my_location, color: Colors.black54),
+                  ),
+                  // Icon you want to add
+                  SizedBox(
+                      width: 8), // Add some spacing between the icon and text
+                  Text(
+                    'Calibrate',
+                    maxLines: 1,
+                  ),
+                ],
               ),
               selected: false,
               onTap: () async {
@@ -251,9 +280,30 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
               },
             ),
             ListTile(
-              title: const Text(
-                'Set Caravan Dimensions',
-                maxLines: 1,
+              title: Row(
+                children: [
+                  SizedBox(
+                    width: 25,
+                    height: 25,
+                    child: ColorFiltered(
+                      colorFilter: const ColorFilter.mode(
+                        Colors.black54, // Replace with the color you want
+                        BlendMode.srcIn,
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/ruler-solid.svg', // Replace with your SVG image path
+                        width: 18, // Adjust the width as needed
+                        height: 18, // Adjust the height as needed
+                      ),
+                    ),
+                  ), // Icon you want to add // Icon you want to add
+                  const SizedBox(
+                      width: 8), // Add some spacing between the icon and text
+                  const Text(
+                    'Set Caravan Dimensions',
+                    maxLines: 1,
+                  ),
+                ],
               ),
               selected: false,
               onTap: () async {
@@ -263,9 +313,30 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
               },
             ),
             ListTile(
-              title: const Text(
-                'Set Device Orientation',
-                maxLines: 1,
+              title: Row(
+                children: [
+                  SizedBox(
+                    width: 25,
+                    height: 25,
+                    child: ColorFiltered(
+                      colorFilter: const ColorFilter.mode(
+                        Colors.black54, // Replace with the color you want
+                        BlendMode.srcIn,
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/arrows-spin-solid.svg', // Replace with your SVG image path
+                        width: 20, // Adjust the width as needed
+                        height: 20, // Adjust the height as needed
+                      ),
+                    ),
+                  ), // Icon you want to add
+                  const SizedBox(
+                      width: 8), // Add some spacing between the icon and text
+                  const Text(
+                    'Set Device Orientation',
+                    maxLines: 1,
+                  ),
+                ],
               ),
               selected: false,
               onTap: () async {
@@ -275,19 +346,21 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
               },
             ),
             ListTile(
-              title: const Text(
-                'Settings',
-                maxLines: 1,
-              ),
-              selected: false,
-              onTap: () async {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              title: const Text(
-                'Update Device Firmware',
-                maxLines: 1,
+              title: const Row(
+                children: [
+                  SizedBox(
+                    width: 25,
+                    height: 25,
+                    child: Icon(Icons.keyboard_double_arrow_up_outlined,
+                        color: Colors.black54),
+                  ), // Icon you want to add
+                  SizedBox(
+                      width: 8), // Add some spacing between the icon and text
+                  Text(
+                    'Update Device Firmware',
+                    maxLines: 1,
+                  ),
+                ],
               ),
               selected: false,
               onTap: () async {
@@ -415,7 +488,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                     16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
                 child: Center(
                   child: Transform.rotate(
-                    angle: pi / 180 * (_yAngle - _yAngleCalibration) * -1,
+                    angle: getJockeyImageAngle(),
                     child: camperSide,
                   ),
                 ),
@@ -448,8 +521,121 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                   const EdgeInsets.all(16.0), // Adjust the padding as needed
               child: getConnectToDeviceWidget()),
         ),
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Padding(
+              padding:
+                  const EdgeInsets.all(16.0), // Adjust the padding as needed
+              child: toggleLevelingModeButtonWidget()),
+        ),
+        Positioned(
+          bottom: 60,
+          left: 0,
+          right: 0,
+          child: Padding(
+              padding:
+                  const EdgeInsets.all(16.0), // Adjust the padding as needed
+              child: getSaveHitchHeightWidget()),
+        )
       ],
     );
+  }
+
+  double getJockeyImageAngle() {
+    return pi / 180 * (getYAngleAdjusted()) * -1;
+  }
+
+  List<bool> isSelected = [
+    true,
+    false
+  ]; // Initialize based on currentLevelingMode value
+
+  List<Widget> _buildToggleButtons() {
+    return [
+      ElevatedButton(
+        onPressed: () {
+          setState(() {
+            isSelected = [true, false];
+            toggleLevelingMode();
+          });
+        },
+        style: ButtonStyle(
+          backgroundColor: MaterialStateProperty.all<Color>(
+            isSelected[0] ? Colors.green : Colors.grey,
+          ),
+        ),
+        child: const Text('Adjest to Level'),
+      ),
+      ElevatedButton(
+        onPressed: () {
+          setState(() {
+            isSelected = [false, true];
+            toggleLevelingMode();
+          });
+        },
+        style: ButtonStyle(
+          backgroundColor: MaterialStateProperty.all<Color>(
+            isSelected[1] ? Colors.green : Colors.grey,
+          ),
+        ),
+        child: const Text('Adjust to Saved Height'),
+      ),
+    ];
+  }
+
+  Widget toggleLevelingModeButtonWidget() {
+    return deviceConnected
+        ? Center(
+            child: ToggleButtons(
+              color: Colors.transparent,
+              selectedColor: Colors.transparent,
+              fillColor: Colors.transparent,
+              borderColor: Colors.transparent,
+              selectedBorderColor: Colors.transparent,
+              isSelected: isSelected,
+              onPressed: (int index) {
+                setState(() {
+                  isSelected =
+                      List.generate(isSelected.length, (i) => i == index);
+                  toggleLevelingMode();
+                });
+              },
+              children: _buildToggleButtons(),
+            ),
+          )
+        : const SizedBox();
+  }
+
+  Widget getSaveHitchHeightWidget() {
+    return deviceConnected
+        ? FilledButton(
+            onPressed: () async {
+              await _showSaveHitchHeightConfirmationDialog();
+            },
+            child: const Text('Save Hitch Height'),
+          )
+        : const SizedBox();
+  }
+
+  void toggleLevelingMode() {
+    setState(() {
+      switch (currentLevelingMode) {
+        case LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT:
+          currentLevelingMode = LevelingMode.LEVEL_TO_LEVEL;
+          break;
+        default:
+          currentLevelingMode = LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT;
+      }
+    });
+  }
+
+  void saveHitchAngle() {
+    setState(() {
+      _savedHitchAngle = _yAngle - _yAngleCalibration;
+      _sharedPreferences.setDouble('hitchHeightAngle', _savedHitchAngle);
+    });
   }
 
   Widget getConnectToDeviceWidget() {
@@ -470,7 +656,12 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     double adjustedAngle = (_xAngle - _xAngleCalibration);
     double roundedAngle = (adjustedAngle / 0.05).round() * 0.05;
 
-    angleString = '${format.format(roundedAngle)}°';
+    if ((currentLevelingMode == LevelingMode.LEVEL_TO_LEVEL)) {
+      angleString = '${format.format(roundedAngle)}°';
+    } else {
+      angleString = '0.00°';
+      textColor = Colors.black54;
+    }
 
     return Text(
       angleString,
@@ -489,8 +680,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     String angleString;
     Color textColor = Colors.black54;
 
-    double adjustedAngle = (_yAngle - _yAngleCalibration);
-    double roundedAngle = (adjustedAngle / 0.05).round() * 0.05;
+    double roundedAngle = (getYAngleAdjusted() / 0.05).round() * 0.05;
 
     angleString = '${format.format(roundedAngle)}°';
 
@@ -505,10 +695,14 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     );
   }
 
+  double getYAngleAdjusted() {
+    return _yAngle - _yAngleCalibration;
+  }
+
   Widget getLeftHeightStringWidget() {
     double height;
 
-    if (horizontalReference != 'left') {
+    if (horizontalReference == 'right') {
       height = double.parse(
           (tan((_xAngle - _xAngleCalibration) * pi / 180.0) * _caravanWidth)
               .toStringAsFixed(3));
@@ -521,13 +715,18 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     String heightString;
     Color textColor = Colors.red;
 
-    if (height > 0) {
-      heightString = '$downArrow ${format.format(height.abs())}';
-    } else if (height < 0) {
-      heightString = '$upArrow ${format.format(height.abs())}';
+    if ((currentLevelingMode == LevelingMode.LEVEL_TO_LEVEL)) {
+      if (height > 0) {
+        heightString = '$downArrow ${format.format(height.abs())}';
+      } else if (height < 0) {
+        heightString = '$upArrow ${format.format(height.abs())}';
+      } else {
+        heightString = '0.000';
+        textColor = Colors.green;
+      }
     } else {
       heightString = '0.000';
-      textColor = Colors.green;
+      textColor = Colors.black54;
     }
 
     return GestureDetector(
@@ -536,11 +735,14 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           horizontalReference = 'right';
         });
       },
-      child: Text(
-        heightString,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-            fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+      child: Container(
+        height: 50, // Set the desired fixed height
+        child: Text(
+          heightString,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -548,7 +750,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   Widget getRightHeightStringWidget() {
     double height;
 
-    if (horizontalReference != 'right') {
+    if (horizontalReference == 'left') {
       height = double.parse(
           (tan((_xAngle - _xAngleCalibration) * pi / 180.0) * _caravanWidth)
               .toStringAsFixed(3));
@@ -561,13 +763,18 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     String heightString;
     Color textColor = Colors.red;
 
-    if (height < 0) {
-      heightString = '$downArrow ${format.format(height.abs())}';
-    } else if (height > 0) {
-      heightString = '$upArrow ${format.format(height.abs())}';
+    if ((currentLevelingMode == LevelingMode.LEVEL_TO_LEVEL)) {
+      if (height < 0) {
+        heightString = '$downArrow ${format.format(height.abs())}';
+      } else if (height > 0) {
+        heightString = '$upArrow ${format.format(height.abs())}';
+      } else {
+        heightString = '0.000';
+        textColor = Colors.green;
+      }
     } else {
       heightString = '0.000';
-      textColor = Colors.green;
+      textColor = Colors.black54;
     }
 
     return GestureDetector(
@@ -576,19 +783,31 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           horizontalReference = 'left';
         });
       },
-      child: Text(
-        heightString,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-            fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+      child: Container(
+        height: 50, // Set the desired fixed height
+        child: Text(
+          heightString,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
 
   Widget getJockyHeightWidget() {
-    double height = double.parse(
-        (tan((_yAngle - _yAngleCalibration) * pi / 180.0) * _caravanLength)
-            .toStringAsFixed(3));
+    double height;
+    if (currentLevelingMode == LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT) {
+      height = double.parse(
+          (tan((getYAngleAdjusted() - _savedHitchAngle) * pi / 180.0) *
+                  _caravanLength *
+                  -1)
+              .toStringAsFixed(3));
+    } else {
+      height = double.parse(
+          (tan((getYAngleAdjusted()) * pi / 180.0) * _caravanLength)
+              .toStringAsFixed(3));
+    }
 
     var format = NumberFormat("##0.000", "en_US");
 
@@ -662,6 +881,58 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     );
   }
 
+  Future<void> _showSaveHitchHeightConfirmationDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(
+                Icons.warning,
+                color: Colors.orangeAccent,
+                size: 50,
+              ), // Warning icon
+              SizedBox(width: 8), // Add some spacing between the icon and text
+              Expanded(
+                child: Text(
+                  'This action will overwrite any previous height saved',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: const SingleChildScrollView(),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Overwrite previous height'),
+              onPressed: () {
+                saveHitchAngle();
+                Fluttertoast.showToast(
+                  msg: 'Hitch height saved',
+                  toastLength: Toast.LENGTH_SHORT,
+                  gravity: ToastGravity.BOTTOM,
+                  backgroundColor: Colors.grey,
+                  textColor: Colors.white,
+                  fontSize: 16.0,
+                );
+
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _showDimensionsDialog() async {
     TextEditingController _caravanWidthController = TextEditingController();
     TextEditingController _caravanLengthController = TextEditingController();
@@ -678,7 +949,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
-                const Text('Caravan Width (m)'),
+                const Text('Caravan Track Width (m)'),
                 TextField(
                   keyboardType: TextInputType.number,
                   controller: _caravanWidthController,
