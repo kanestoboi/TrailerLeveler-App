@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'dart:async';
@@ -258,31 +260,11 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
         accelerationDataCharacteristic.lastValueStream.listen((value) async {
       if (value.length == ADXL355_DATA_LENGTH) {
         // The bytes are received in 32 bit little endian format so convert them into a numbers
-        int accX = (value[3] << 24 | value[2] << 16 | value[1] << 8 | value[0]);
-        int accY = (value[7] << 24 | value[6] << 16 | value[5] << 8 | value[4]);
-        int accZ =
-            (value[11] << 24 | value[10] << 16 | value[9] << 8 | value[8]);
+        ByteData byteData = ByteData.sublistView(Uint8List.fromList(value));
 
-        int maskedN = (value[2] & (1 << 2));
-        int thebit = maskedN >> 2;
-
-        if (thebit == 1) {
-          accX = accX | 0xFFFFFFFFFF000000;
-        }
-
-        maskedN = (value[6] & (1 << 2));
-        thebit = maskedN >> 2;
-
-        if (thebit == 1) {
-          accY = accY | 0xFFFFFFFFFF000000;
-        }
-
-        maskedN = (value[10] & (1 << 2));
-        thebit = maskedN >> 2;
-
-        if (thebit == 1) {
-          accZ = accZ | 0xFFFFFFFFFF000000;
-        }
+        int accX = byteData.getInt32(0, Endian.little);
+        int accY = byteData.getInt32(4, Endian.little);
+        int accZ = byteData.getInt32(8, Endian.little);
 
         xoutput = (0.9896 * xoutput + 0.0104 * accX).round();
         youtput = (0.9896 * youtput + 0.0104 * accY).round();
@@ -305,30 +287,11 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
         _streamController.sink.add(obj);
       } else if (value.length == MPU6050_DATA_LENGTH) {
-        int accX = (value[1] << 8 | value[0]);
-        int accY = (value[3] << 8 | value[2]);
-        int accZ = (value[5] << 8 | value[4]);
+        ByteData byteData = ByteData.sublistView(Uint8List.fromList(value));
 
-        int maskedN = (value[1] & (1 << 7));
-        int thebit = maskedN >> 7;
-
-        if (thebit == 1) {
-          accX = accX | 0xFFFFFFFFFFFF0000;
-        }
-
-        maskedN = (value[3] & (1 << 7));
-        thebit = maskedN >> 7;
-
-        if (thebit == 1) {
-          accY = accY | 0xFFFFFFFFFFFF0000;
-        }
-
-        maskedN = (value[5] & (1 << 7));
-        thebit = maskedN >> 7;
-
-        if (thebit == 1) {
-          accZ = accZ | 0xFFFFFFFFFFFF0000;
-        }
+        int accX = byteData.getInt16(0, Endian.little);
+        int accY = byteData.getInt16(2, Endian.little);
+        int accZ = byteData.getInt16(4, Endian.little);
 
         xoutput = (0.9896 * xoutput + 0.0104 * accX).round();
         youtput = (0.9896 * youtput + 0.0104 * accY).round();
