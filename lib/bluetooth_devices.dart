@@ -1,13 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'dart:async';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:trailer_leveler_app/utilities/map.dart';
-import 'package:trailer_leveler_app/app_data.dart';
 
-import 'package:collection/collection.dart'; // You have to add this manually, for some reason it cannot be added automatically
-
-import 'dart:math';
+import 'package:collection/collection.dart';
+import 'package:trailer_leveler_app/app_data.dart'; // You have to add this manually, for some reason it cannot be added automatically
 
 const int MPU6050_MAX_VALUE = 32767;
 const int MPU6050_MIN_VALUE = -32768;
@@ -35,32 +34,18 @@ const String ADXL355_ACCELEROMETER_CHARACTERISTIC_UUID =
 const String MPU6050_ACCELEROMETER_CHARACTERISTIC_UUID =
     "76491402-7DD9-11ED-A1EB-0242AC120002";
 // ignore: constant_identifier_names
+const String ACCELEROMETER_ANGLES_CHARACTERISTIC_UUID =
+    "76491403-7DD9-11ED-A1EB-0242AC120002";
+const String ACCELEROMETER_ORIENTATION_CHARACTERISTIC_UUID =
+    "76491404-7DD9-11ED-A1EB-0242AC120002";
+
+// ignore: constant_identifier_names
 const String BATTERY_LEVEL_CHARACTERISTIC_UUID =
     "00002A19-0000-1000-8000-00805F9B34FB";
 // ignore: constant_identifier_names
 const String UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
 // ignore: constant_identifier_names
 const String UART_CHARACTERISTIC_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
-
-int xoutput = 0;
-int youtput = 0;
-int zoutput = 0;
-double x = 0;
-double y = 0;
-double z = 0;
-
-// ignore: non_constant_identifier_names
-double RAD_TO_DEG = 57.296;
-// ignore: non_constant_identifier_names
-double PI = 3.14;
-
-class AngleMeasurement {
-  double xAngle;
-  double yAngle;
-  double zAngle;
-
-  AngleMeasurement(this.xAngle, this.yAngle, this.zAngle);
-}
 
 class BluetoothDevices extends StatefulWidget {
   const BluetoothDevices({Key? key, required this.title}) : super(key: key);
@@ -209,13 +194,11 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
 
     List<BluetoothService> services = await device.discoverServices();
 
-    BluetoothCharacteristic? accelerationDataCharacteristic;
+    BluetoothCharacteristic? angleDataCharacteristic;
+    BluetoothCharacteristic? orientationCharacteristic;
 
     BluetoothService? accelerometerService = services.firstWhereOrNull(
         (service) => service.uuid == Guid(ACCELEROMETER_SERVICE_UUID));
-
-    accelerometerService ??= services
-        .firstWhereOrNull((service) => service.uuid == Guid(UART_SERVICE_UUID));
 
     if (accelerometerService == null) {
       debugPrint("Accelerometer Service not found");
@@ -223,21 +206,7 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       debugPrint("Accelerometer Service found");
     }
 
-    accelerationDataCharacteristic = accelerometerService?.characteristics
-        .firstWhereOrNull((characteristic) =>
-            characteristic.uuid ==
-            Guid(ADXL355_ACCELEROMETER_CHARACTERISTIC_UUID));
-
-    accelerationDataCharacteristic ??= accelerometerService?.characteristics
-        .firstWhereOrNull((characteristic) =>
-            characteristic.uuid ==
-            Guid(MPU6050_ACCELEROMETER_CHARACTERISTIC_UUID));
-
-    accelerationDataCharacteristic ??= accelerometerService?.characteristics
-        .firstWhereOrNull((characteristic) =>
-            characteristic.uuid == Guid(UART_CHARACTERISTIC_UUID));
-
-    if (accelerationDataCharacteristic == null) {
+    if (accelerometerService == null) {
       Fluttertoast.showToast(
           msg: "Not a Trailer Leveler",
           toastLength: Toast.LENGTH_SHORT,
@@ -252,109 +221,59 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       return;
     }
 
-    await accelerationDataCharacteristic.setNotifyValue(true);
+    angleDataCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_ANGLES_CHARACTERISTIC_UUID));
+
+    orientationCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_ORIENTATION_CHARACTERISTIC_UUID));
+
+    if (orientationCharacteristic == null) {
+      debugPrint("Orientation not found");
+      Fluttertoast.showToast(
+          msg: "orientation char not found",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.CENTER,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.black38,
+          textColor: Colors.white,
+          fontSize: 16.0);
+    } else {
+      debugPrint("Orientation found");
+      await orientationCharacteristic.read().then((value) {
+        debugPrint("orientation value received");
+        if (value.isNotEmpty) {
+          debugPrint("Orientation not empty");
+
+          Uint8List uint8List = Uint8List.fromList(value);
+          double orientation =
+              uint8List[0].toDouble(); // Convert Uint8 to double
+
+          var obj = {
+            "orientation": orientation,
+          };
+
+          _streamController.sink.add(obj);
+        }
+      });
+    }
+
+    await angleDataCharacteristic?.setNotifyValue(true);
 
     accelerationCharacteristicStreamSubscription =
-        accelerationDataCharacteristic.lastValueStream.listen((value) async {
+        angleDataCharacteristic?.lastValueStream.listen((value) async {
       if (value.length == ADXL355_DATA_LENGTH) {
         // The bytes are received in 32 bit little endian format so convert them into a numbers
-        int accX = (value[3] << 24 | value[2] << 16 | value[1] << 8 | value[0]);
-        int accY = (value[7] << 24 | value[6] << 16 | value[5] << 8 | value[4]);
-        int accZ =
-            (value[11] << 24 | value[10] << 16 | value[9] << 8 | value[8]);
+        ByteData byteData = ByteData.sublistView(Uint8List.fromList(value));
 
-        int maskedN = (value[2] & (1 << 2));
-        int thebit = maskedN >> 2;
+        double accX = byteData.getFloat32(0, Endian.little);
+        double accY = byteData.getFloat32(4, Endian.little);
+        double accZ = byteData.getFloat32(8, Endian.little);
 
-        if (thebit == 1) {
-          accX = accX | 0xFFFFFFFFFF000000;
-        }
-
-        maskedN = (value[6] & (1 << 2));
-        thebit = maskedN >> 2;
-
-        if (thebit == 1) {
-          accY = accY | 0xFFFFFFFFFF000000;
-        }
-
-        maskedN = (value[10] & (1 << 2));
-        thebit = maskedN >> 2;
-
-        if (thebit == 1) {
-          accZ = accZ | 0xFFFFFFFFFF000000;
-        }
-
-        xoutput = (0.9896 * xoutput + 0.0104 * accX).round();
-        youtput = (0.9896 * youtput + 0.0104 * accY).round();
-        zoutput = (0.9896 * zoutput + 0.0104 * accZ).round();
-
-        double xAng = map(accX, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
-        double yAng = map(accY, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
-        double zAng = map(accZ, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
-
-        // debugPrint(
-        //"x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
-        AngleMeasurement angles = calculateAnglesFromDeviceOrientation(
-            xAng, yAng, zAng, appData.deviceOrientation);
-
-        var obj = {
-          "xAngle": angles.xAngle,
-          "yAngle": angles.yAngle,
-          "zAngle": angles.zAngle
-        };
-
-        _streamController.sink.add(obj);
-      } else if (value.length == MPU6050_DATA_LENGTH) {
-        int accX = (value[1] << 8 | value[0]);
-        int accY = (value[3] << 8 | value[2]);
-        int accZ = (value[5] << 8 | value[4]);
-
-        int maskedN = (value[1] & (1 << 7));
-        int thebit = maskedN >> 7;
-
-        if (thebit == 1) {
-          accX = accX | 0xFFFFFFFFFFFF0000;
-        }
-
-        maskedN = (value[3] & (1 << 7));
-        thebit = maskedN >> 7;
-
-        if (thebit == 1) {
-          accY = accY | 0xFFFFFFFFFFFF0000;
-        }
-
-        maskedN = (value[5] & (1 << 7));
-        thebit = maskedN >> 7;
-
-        if (thebit == 1) {
-          accZ = accZ | 0xFFFFFFFFFFFF0000;
-        }
-
-        xoutput = (0.9896 * xoutput + 0.0104 * accX).round();
-        youtput = (0.9896 * youtput + 0.0104 * accY).round();
-        zoutput = (0.9896 * zoutput + 0.0104 * accZ).round();
-
-        double xAng =
-            map(xoutput, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
-        double yAng =
-            map(youtput, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
-        double zAng =
-            map(zoutput, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
-
-        // debugPrint(            "x: $accX, y: $accY, z: $accZ, xAng: $xAng, yAng: $yAng, zAng: $zAng");
-
-        AngleMeasurement angles = calculateAnglesFromDeviceOrientation(
-            xAng, yAng, zAng, appData.deviceOrientation);
-
-        // double x = _RAD_TO_DEG * (atan2(-yAng, -zAng) + _PI);
-        // double y = _RAD_TO_DEG * (atan2(-xAng, -zAng) + _PI);
-        // double z = _RAD_TO_DEG * (atan2(-yAng, -xAng) + _PI);
-
-        var obj = {
-          "xAngle": angles.xAngle,
-          "yAngle": angles.yAngle,
-          "zAngle": angles.zAngle
-        };
+        var obj = {"xAngle": accX, "yAngle": accY, "zAngle": accZ};
 
         _streamController.sink.add(obj);
       }
@@ -417,58 +336,10 @@ class _BluetoothDevicesState extends State<BluetoothDevices> {
       debugPrint("Characteristic not found!!!");
     }
 
-    Navigator.pop(context, stream);
-  }
-
-  AngleMeasurement calculateAnglesFromDeviceOrientation(
-      double angleX, double angleY, double angleZ, int orientation) {
-    AngleMeasurement angles = AngleMeasurement(0, 0, 0);
-
-    switch (orientation) {
-      case 1:
-        {
-          angles.xAngle = _RAD_TO_DEG * (atan2(angleZ, -angleY) + _PI);
-          angles.yAngle = _RAD_TO_DEG * (atan2(-angleX, -angleZ) + _PI);
-          angles.zAngle = _RAD_TO_DEG * (atan2(-angleZ, -angleX) + _PI);
-          break;
-        }
-      case 2:
-        {
-          angles.xAngle = _RAD_TO_DEG * (atan2(-angleY, -angleZ) + _PI);
-          angles.yAngle = _RAD_TO_DEG * (atan2(-angleX, angleY) + _PI);
-          angles.zAngle = _RAD_TO_DEG * (atan2(-angleY, -angleX) + _PI);
-          break;
-        }
-      case 3:
-        {
-          angles.xAngle = _RAD_TO_DEG * (atan2(-angleY, -angleX) + _PI);
-          angles.yAngle = _RAD_TO_DEG * (atan2(angleZ, angleY) + _PI);
-          angles.zAngle = _RAD_TO_DEG * (atan2(-angleY, angleZ) + _PI);
-          break;
-        }
-      case 4:
-        {
-          angles.xAngle = _RAD_TO_DEG * (atan2(-angleY, angleX) + _PI);
-          angles.yAngle = _RAD_TO_DEG * (atan2(-angleZ, angleY) + _PI);
-          angles.zAngle = _RAD_TO_DEG * (atan2(-angleY, -angleZ) + _PI);
-          break;
-        }
-      case 5:
-        {
-          angles.xAngle = _RAD_TO_DEG * (atan2(-angleY, angleZ) + _PI);
-          angles.yAngle = _RAD_TO_DEG * (atan2(angleX, angleY) + _PI);
-          angles.zAngle = _RAD_TO_DEG * (atan2(-angleY, angleX) + _PI);
-          break;
-        }
-      case 6:
-        {
-          angles.xAngle = _RAD_TO_DEG * (atan2(-angleZ, angleY) + _PI);
-          angles.yAngle = _RAD_TO_DEG * (atan2(-angleX, angleZ) + _PI);
-          angles.zAngle = _RAD_TO_DEG * (atan2(-angleZ, -angleX) + _PI);
-          break;
-        }
-    }
-
-    return angles;
+    appData.orientaionCharacteristic = orientationCharacteristic;
+    Navigator.pop(
+      context,
+      stream,
+    );
   }
 }

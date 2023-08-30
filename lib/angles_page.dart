@@ -60,6 +60,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
   bool isSoundMuted = true;
 
+  double deviceOrientation = 1;
+
   late Image camperRear;
   late Image camperSide;
 
@@ -420,6 +422,10 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
             deviceConnected = false;
             _showDisconnectedDialog();
           }
+        }
+        if (value['orientation'] != null) {
+          deviceOrientation = value['orientation'];
+          debugPrint("Orientation received");
         }
       });
     });
@@ -1003,13 +1009,14 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                 widthFactor: 0.8,
                 heightFactor: 0.9,
                 child: DeviceOrientationPage(
-                    initialOrientation: appData.deviceOrientation),
+                    initialOrientation: deviceOrientation.toInt()),
               );
             },
           );
         });
 
-    appData.deviceOrientation = selectedOrientation!;
+    deviceOrientation = selectedOrientation!.toDouble();
+    appData.orientaionCharacteristic?.write([deviceOrientation.toInt()]);
     _sharedPreferences.setInt('deviceOrientation', selectedOrientation);
   }
 
