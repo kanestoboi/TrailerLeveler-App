@@ -408,7 +408,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
     BluetoothBloc.instance.connectionStateStream.listen((value) {
       if (value['connected'] != null) {
-        if (value['connected'] == 1) {
+        if (value['connected'] == true) {
           deviceConnected = true;
           loopAudio();
         } else {
@@ -416,12 +416,16 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           _showDisconnectedDialog();
         }
       }
+
+      setState(() {});
     });
 
     BluetoothBloc.instance.batteryLevelStream.listen((value) {
       if (value['batteryLevel'] != null) {
         batteryLevel = value['batteryLevel'];
       }
+
+      setState(() {});
     });
 
     BluetoothBloc.instance.orientationStream.listen((value) {
@@ -999,6 +1003,19 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   }
 
   Future<void> _showDeviceOrientationDialog() async {
+    if (deviceConnected == false) {
+      Fluttertoast.showToast(
+        msg: 'Orientation can\'t be set without a device connected',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.grey,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+
+      return;
+    }
+
     int currentOrientation = await BluetoothBloc.instance.getOrientation();
 
     int? selectedOrientation = await showDialog<int>(

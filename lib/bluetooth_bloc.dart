@@ -46,7 +46,8 @@ class BluetoothBloc {
   final _anglesStreamController = StreamController<Map<String, double>>();
   final _batteryLevelStreamController = StreamController<Map<String, int>>();
   final _orientationStreamController = StreamController<Map<String, int>>();
-  final _connectionStateStreamController = StreamController<Map<String, int>>();
+  final _connectionStateStreamController =
+      StreamController<Map<String, bool>>();
 
   // Declare the subscription variable
   StreamSubscription<BluetoothConnectionState>? connectionStateSubscription;
@@ -57,7 +58,7 @@ class BluetoothBloc {
       _batteryLevelStreamController.stream;
   Stream<Map<String, int>> get orientationStream =>
       _orientationStreamController.stream;
-  Stream<Map<String, int>> get connectionStateStream =>
+  Stream<Map<String, bool>> get connectionStateStream =>
       _connectionStateStreamController.stream;
 
   factory BluetoothBloc() {
@@ -109,11 +110,7 @@ class BluetoothBloc {
       return;
     }
 
-    var obj = {
-      "connected": 1.0,
-    };
-
-    _anglesStreamController.sink.add(obj);
+    _connectionStateStreamController.sink.add({"connected": true});
 
     List<BluetoothService> services = await device.discoverServices();
 
@@ -198,13 +195,8 @@ class BluetoothBloc {
         device.connectionState.listen((connectionState) async {
       switch (connectionState) {
         case BluetoothConnectionState.disconnected:
-          var obj = {
-            "connected": 1,
-          };
+          _connectionStateStreamController.sink.add({"connected": false});
 
-          _connectionStateStreamController.sink.add(obj);
-
-          debugPrint("DISCONNECTED!!!!!");
           // Cancel the subscription to stop listening
           connectionStateSubscription?.cancel();
           break;
