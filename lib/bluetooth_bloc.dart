@@ -25,6 +25,9 @@ const String ACCELEROMETER_ANGLES_CHARACTERISTIC_UUID =
 const String ACCELEROMETER_ORIENTATION_CHARACTERISTIC_UUID =
     "76491404-7DD9-11ED-A1EB-0242AC120002";
 // ignore: constant_identifier_names
+const String ACCELEROMETER_CALIBRATION_CHARACTERISTIC_UUID =
+    "76491405-7DD9-11ED-A1EB-0242AC120002";
+// ignore: constant_identifier_names
 const String BATTERY_LEVEL_CHARACTERISTIC_UUID =
     "00002A19-0000-1000-8000-00805F9B34FB";
 
@@ -38,6 +41,7 @@ class BluetoothBloc {
 
   BluetoothCharacteristic? anglesCharacteristic;
   BluetoothCharacteristic? orientationCharacteristic;
+  BluetoothCharacteristic? calibrationCharacteristic;
   BluetoothCharacteristic? batteryLevelCharacteristic;
 
   // Private static instance of the class
@@ -45,7 +49,6 @@ class BluetoothBloc {
 
   final _anglesStreamController = StreamController<Map<String, double>>();
   final _batteryLevelStreamController = StreamController<Map<String, int>>();
-  final _orientationStreamController = StreamController<Map<String, int>>();
   final _connectionStateStreamController =
       StreamController<Map<String, bool>>();
 
@@ -56,8 +59,6 @@ class BluetoothBloc {
       _anglesStreamController.stream;
   Stream<Map<String, int>> get batteryLevelStream =>
       _batteryLevelStreamController.stream;
-  Stream<Map<String, int>> get orientationStream =>
-      _orientationStreamController.stream;
   Stream<Map<String, bool>> get connectionStateStream =>
       _connectionStateStreamController.stream;
 
@@ -81,6 +82,16 @@ class BluetoothBloc {
     List<int>? orientation = await orientationCharacteristic?.read();
 
     return orientation![0];
+  }
+
+  Future<void> setCalibration(int calibration) async {
+    await calibrationCharacteristic?.write([calibration]);
+  }
+
+  Future<int> getCalibration() async {
+    List<int>? calibration = await calibrationCharacteristic?.read();
+
+    return calibration![0];
   }
 
   Future<void> connectToDevice(BluetoothDevice device) async {
@@ -151,7 +162,7 @@ class BluetoothBloc {
     if (orientationCharacteristic == null) {
       debugPrint("Orientation not found");
       Fluttertoast.showToast(
-          msg: "orientation char not found",
+          msg: "Orientation char not found",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.CENTER,
           timeInSecForIosWeb: 1,
@@ -160,16 +171,25 @@ class BluetoothBloc {
           fontSize: 16.0);
     } else {
       debugPrint("Orientation found");
-      await orientationCharacteristic?.read().then((value) {
-        debugPrint("orientation value received");
-        if (value.isNotEmpty) {
-          var obj = {
-            "orientation": value[0],
-          };
+    }
 
-          _orientationStreamController.sink.add(obj);
-        }
-      });
+    calibrationCharacteristic = instance.accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_CALIBRATION_CHARACTERISTIC_UUID));
+
+    if (calibrationCharacteristic == null) {
+      debugPrint("Calibration not found");
+      Fluttertoast.showToast(
+          msg: "Calibration char not found",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.CENTER,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.black38,
+          textColor: Colors.white,
+          fontSize: 16.0);
+    } else {
+      debugPrint("Calibration found");
     }
 
     await anglesCharacteristic?.setNotifyValue(true);
@@ -239,7 +259,6 @@ class BluetoothBloc {
   void dispose() {
     _anglesStreamController.close();
     _batteryLevelStreamController.close();
-    _orientationStreamController.close();
     connectionStateSubscription?.cancel();
   }
 }

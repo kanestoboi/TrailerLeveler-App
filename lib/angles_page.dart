@@ -427,12 +427,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
       setState(() {});
     });
-
-    BluetoothBloc.instance.orientationStream.listen((value) {
-      if (value['orientation'] != null) {
-        debugPrint("Orientation received");
-      }
-    });
   }
 
   Future<void> _showDisconnectedDialog() async {
@@ -882,6 +876,9 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
             TextButton(
               child: const Text('OK'),
               onPressed: () {
+                if (deviceConnected) {
+                  BluetoothBloc.instance.setCalibration(1);
+                }
                 Navigator.of(context).pop();
               },
             ),
