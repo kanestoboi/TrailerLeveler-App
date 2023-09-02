@@ -5,13 +5,13 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:trailer_leveler_app/bluetooth_bloc.dart';
 import 'package:trailer_leveler_app/bluetooth_devices.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:audioplayers/audioplayers.dart';
 
-import 'package:trailer_leveler_app/app_data.dart';
 import 'package:trailer_leveler_app/dfu_update_page.dart';
 import 'package:trailer_leveler_app/device_orientation_page.dart';
 
@@ -40,7 +40,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   double _xAngle = 0.0;
   double _yAngle = 0.0;
   double _zAngle = 0.0;
-  double? _batteryLevel;
+
   double _savedHitchAngle =
       0; // The angle the device it at when hitch height is saved
 
@@ -57,6 +57,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   String horizontalReference = 'right';
 
   bool deviceConnected = false;
+  int? batteryLevel;
 
   bool isSoundMuted = true;
 
@@ -72,7 +73,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   void initState() {
     audioPlayer = AudioPlayer();
 
-    //audioPlayer?.setPlayerMode(PlayerMode.lowLatency);
     camperRear = Image.asset("images/caravan_rear.png", width: 125);
     camperSide = Image.asset(
       "images/caravan_side.png",
@@ -149,9 +149,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     double? _caravanLengthSharedPreferences =
         _sharedPreferences.getDouble('caravanLength');
 
-    int orientationSharedPreferences =
-        _sharedPreferences.getInt('deviceOrientation') ?? 1;
-
     double? hitchHeightAngleSharedPreferences =
         _sharedPreferences.getDouble('hitchHeightAngle') ?? 0;
 
@@ -166,8 +163,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     if (_caravanLengthSharedPreferences != null) {
       _caravanLength = _caravanLengthSharedPreferences;
     }
-
-    appData.deviceOrientation = orientationSharedPreferences;
 
     _savedHitchAngle = hitchHeightAngleSharedPreferences;
   }
@@ -395,33 +390,42 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         builder: (BuildContext context) => const BluetoothDevices(
               title: "devices",
             ));
-    final anglesStream =
-        await Navigator.of(context).push(bluetoothDevicesPageRoute);
+    await Navigator.of(context).push(bluetoothDevicesPageRoute);
 
-    anglesStream.listen((value) {
+    BluetoothBloc.instance.anglesStream.listen((value) {
       setState(() {
         if (value['xAngle'] != null) {
-          _xAngle = value['xAngle'];
+          _xAngle = value['xAngle']!;
         }
         if (value['yAngle'] != null) {
-          _yAngle = value['yAngle'];
+          _yAngle = value['yAngle']!;
         }
         if (value['zAngle'] != null) {
-          _zAngle = value['zAngle'];
-        }
-        if (value['batteryLevel'] != null) {
-          _batteryLevel = value['batteryLevel'];
-        }
-        if (value['connected'] != null) {
-          if (value['connected'] == 1.0) {
-            deviceConnected = true;
-            loopAudio();
-          } else {
-            deviceConnected = false;
-            _showDisconnectedDialog();
-          }
+          _zAngle = value['zAngle']!;
         }
       });
+    });
+
+    BluetoothBloc.instance.connectionStateStream.listen((value) {
+      if (value['connected'] != null) {
+        if (value['connected'] == true) {
+          deviceConnected = true;
+          loopAudio();
+        } else {
+          deviceConnected = false;
+          _showDisconnectedDialog();
+        }
+      }
+
+      setState(() {});
+    });
+
+    BluetoothBloc.instance.batteryLevelStream.listen((value) {
+      if (value['batteryLevel'] != null) {
+        batteryLevel = value['batteryLevel'];
+      }
+
+      setState(() {});
     });
   }
 
@@ -835,8 +839,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     var format = NumberFormat("###", "en_US");
 
     String batteryLevelString;
-    if (_batteryLevel != null) {
-      batteryLevelString = "$batterySymbol ${format.format(_batteryLevel)}%";
+    if (batteryLevel != null) {
+      batteryLevelString = "$batterySymbol ${format.format(batteryLevel)}%";
     } else {
       batteryLevelString = "      ";
     }
@@ -872,6 +876,9 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
             TextButton(
               child: const Text('OK'),
               onPressed: () {
+                if (deviceConnected) {
+                  BluetoothBloc.instance.setCalibration(1);
+                }
                 Navigator.of(context).pop();
               },
             ),
@@ -993,24 +1000,39 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   }
 
   Future<void> _showDeviceOrientationDialog() async {
-    int? selectedOrientation = await showDialog<int>(
-        context: context,
-        barrierDismissible: false, // user must tap button!
-        builder: (BuildContext context) {
-          return StatefulBuilder(
-            builder: (context, setState) {
-              return FractionallySizedBox(
-                widthFactor: 0.8,
-                heightFactor: 0.9,
-                child: DeviceOrientationPage(
-                    initialOrientation: appData.deviceOrientation),
-              );
-            },
-          );
-        });
+    if (deviceConnected == false) {
+      Fluttertoast.showToast(
+        msg: 'Orientation can\'t be set without a device connected',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.grey,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
 
-    appData.deviceOrientation = selectedOrientation!;
-    _sharedPreferences.setInt('deviceOrientation', selectedOrientation);
+      return;
+    }
+
+    int currentOrientation = await BluetoothBloc.instance.getOrientation();
+
+    int? selectedOrientation = await showDialog<int>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return FractionallySizedBox(
+              widthFactor: 0.8,
+              heightFactor: 0.9,
+              child:
+                  DeviceOrientationPage(initialOrientation: currentOrientation),
+            );
+          },
+        );
+      },
+    );
+
+    await BluetoothBloc.instance.setOrientation(selectedOrientation!);
   }
 
   Future<void> _showDFUDialog() async {
