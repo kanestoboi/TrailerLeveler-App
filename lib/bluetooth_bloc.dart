@@ -330,9 +330,12 @@ class BluetoothBloc {
         youtput = (0.9396 * youtput + 0.0604 * accY).round();
         zoutput = (0.9396 * zoutput + 0.0604 * accZ).round();
 
-        double xAng = map(accX, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
-        double yAng = map(accY, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
-        double zAng = map(accZ, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
+        double xAng =
+            map(xoutput, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
+        double yAng =
+            map(youtput, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
+        double zAng =
+            map(youtput, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
 
         AngleMeasurement angles = calculateAnglesFromDeviceOrientation(
             xAng, yAng, zAng, BluetoothBloc.instance.currentOrientation);
@@ -351,9 +354,12 @@ class BluetoothBloc {
         youtput = (0.9396 * youtput + 0.0604 * accY).round();
         zoutput = (0.9396 * zoutput + 0.0604 * accZ).round();
 
-        double xAng = map(accX, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
-        double yAng = map(accY, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
-        double zAng = map(accZ, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
+        double xAng =
+            map(xoutput, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
+        double yAng =
+            map(youtput, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
+        double zAng =
+            map(zoutput, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
 
         AngleMeasurement angles = calculateAnglesFromDeviceOrientation(
             xAng, yAng, zAng, BluetoothBloc.instance.currentOrientation);
