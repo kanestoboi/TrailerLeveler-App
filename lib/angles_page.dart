@@ -152,6 +152,11 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     double? hitchHeightAngleSharedPreferences =
         _sharedPreferences.getDouble('hitchHeightAngle') ?? 0;
 
+    int? deviceOrientation =
+        _sharedPreferences.getInt('deviceOrientation') ?? 1;
+
+    BluetoothBloc.instance.currentOrientation = deviceOrientation;
+
     _xAngleCalibration = xAngleSharedPreferences;
     _yAngleCalibration = yAngleSharedPreferences;
     _zAngleCalibration = zAngleSharedPreferences;
@@ -1013,7 +1018,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
       return;
     }
 
-    int currentOrientation = await BluetoothBloc.instance.getOrientation();
+    int currentOrientation = BluetoothBloc.instance.currentOrientation;
 
     int? selectedOrientation = await showDialog<int>(
       context: context,
@@ -1032,7 +1037,12 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
       },
     );
 
-    await BluetoothBloc.instance.setOrientation(selectedOrientation!);
+    setState(() {
+      BluetoothBloc.instance.currentOrientation = selectedOrientation!;
+    });
+
+    _sharedPreferences.setInt('deviceOrientation', selectedOrientation!);
+    //await BluetoothBloc.instance.setOrientation(selectedOrientation);
   }
 
   Future<void> _showDFUDialog() async {

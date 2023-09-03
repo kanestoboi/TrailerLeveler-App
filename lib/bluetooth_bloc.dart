@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:collection/collection.dart'; // You have to add this manually, for some reason it cannot be added automatically
+import 'dart:math';
 
 // ignore: constant_identifier_names
 const String ACCELEROMETER_SERVICE_UUID =
@@ -31,15 +32,40 @@ const String ACCELEROMETER_CALIBRATION_CHARACTERISTIC_UUID =
 const String BATTERY_LEVEL_CHARACTERISTIC_UUID =
     "00002A19-0000-1000-8000-00805F9B34FB";
 
+const int MPU6050_MAX_VALUE = 32767;
+const int MPU6050_MIN_VALUE = -32768;
+const int ADXL355_MAX_VALUE = 262143;
+const int ADXL355_MIN_VALUE = -262144;
+
+// ignore: non_constant_identifier_names
+const double _RAD_TO_DEG = 57.296;
+// ignore: non_constant_identifier_names
+const double _PI = 3.14;
+
+int xoutput = 0;
+int youtput = 0;
+int zoutput = 0;
+
+class AngleMeasurement {
+  double xAngle;
+  double yAngle;
+  double zAngle;
+
+  AngleMeasurement(this.xAngle, this.yAngle, this.zAngle);
+}
+
 class BluetoothBloc {
   StreamSubscription<List<ScanResult>>? scanResultsStreamSubscription;
-  StreamSubscription<List<int>>? accelerationCharacteristicStreamSubscription;
+  StreamSubscription<List<int>>? anglesCharacteristicStreamSubscription;
+  StreamSubscription<List<int>>?
+      accelerationDataCharacteristicStreamSubscription;
 
   BluetoothService? accelerometerService;
   BluetoothService? batteryLevelService;
   BluetoothService? deviceInformationService;
 
   BluetoothCharacteristic? anglesCharacteristic;
+  BluetoothCharacteristic? accelerometerDataCharacteristic;
   BluetoothCharacteristic? orientationCharacteristic;
   BluetoothCharacteristic? calibrationCharacteristic;
   BluetoothCharacteristic? batteryLevelCharacteristic;
@@ -61,6 +87,8 @@ class BluetoothBloc {
       _batteryLevelStreamController.stream;
   Stream<Map<String, bool>> get connectionStateStream =>
       _connectionStateStreamController.stream;
+
+  int currentOrientation = 1;
 
   factory BluetoothBloc() {
     return _singleton;
@@ -95,7 +123,7 @@ class BluetoothBloc {
   }
 
   Future<void> connectToDevice(BluetoothDevice device) async {
-    accelerationCharacteristicStreamSubscription?.cancel();
+    anglesCharacteristicStreamSubscription?.cancel();
 
     bool connected = true;
     await device
@@ -125,16 +153,16 @@ class BluetoothBloc {
 
     List<BluetoothService> services = await device.discoverServices();
 
-    instance.accelerometerService = services.firstWhereOrNull(
+    accelerometerService = services.firstWhereOrNull(
         (service) => service.uuid == Guid(ACCELEROMETER_SERVICE_UUID));
 
-    if (instance.accelerometerService == null) {
+    if (accelerometerService == null) {
       debugPrint("Accelerometer Service not found");
     } else {
       debugPrint("Accelerometer Service found");
     }
 
-    if (instance.accelerometerService == null) {
+    if (accelerometerService == null) {
       Fluttertoast.showToast(
           msg: "Not a Trailer Leveler",
           toastLength: Toast.LENGTH_SHORT,
@@ -149,7 +177,7 @@ class BluetoothBloc {
       return;
     }
 
-    anglesCharacteristic = instance.accelerometerService?.characteristics
+    anglesCharacteristic = accelerometerService?.characteristics
         .firstWhereOrNull((characteristic) =>
             characteristic.uuid ==
             Guid(ACCELEROMETER_ANGLES_CHARACTERISTIC_UUID));
@@ -192,9 +220,17 @@ class BluetoothBloc {
       debugPrint("Calibration found");
     }
 
+    accelerometerDataCharacteristic =
+        getAccelerometerDataCharacteristic(accelerometerService!);
+
+    await accelerometerDataCharacteristic?.setNotifyValue(true);
+
+    accelerationDataCharacteristicStreamSubscription =
+        getAccelerometerDataStreamSubscription();
+
     await anglesCharacteristic?.setNotifyValue(true);
 
-    accelerationCharacteristicStreamSubscription =
+    anglesCharacteristicStreamSubscription =
         anglesCharacteristic?.lastValueStream.listen((value) async {
       if (value.length == 12) {
         // The bytes are received in 32 bit little endian format so convert them into a numbers
@@ -206,7 +242,7 @@ class BluetoothBloc {
 
         var obj = {"xAngle": accX, "yAngle": accY, "zAngle": accZ};
 
-        _anglesStreamController.sink.add(obj);
+        //_anglesStreamController.sink.add(obj);
       }
     }, cancelOnError: true);
 
@@ -260,5 +296,132 @@ class BluetoothBloc {
     _anglesStreamController.close();
     _batteryLevelStreamController.close();
     connectionStateSubscription?.cancel();
+  }
+
+  BluetoothCharacteristic? getAccelerometerDataCharacteristic(
+      BluetoothService service) {
+    BluetoothCharacteristic? characteristic;
+    characteristic = accelerometerService?.characteristics.firstWhereOrNull(
+        (characteristic) =>
+            characteristic.uuid ==
+            Guid(ADXL355_ACCELEROMETER_CHARACTERISTIC_UUID));
+
+    characteristic ??= accelerometerService?.characteristics.firstWhereOrNull(
+        (characteristic) =>
+            characteristic.uuid ==
+            Guid(MPU6050_ACCELEROMETER_CHARACTERISTIC_UUID));
+
+    return characteristic;
+  }
+
+  StreamSubscription<List<int>>? getAccelerometerDataStreamSubscription() {
+    var obj = {"xAngle": 0.0, "yAngle": 0.0, "zAngle": 0.0};
+
+    return accelerometerDataCharacteristic?.lastValueStream.listen(
+        (value) async {
+      // The bytes are received in 32 bit little endian format so convert them into a numbers
+      ByteData byteData = ByteData.sublistView(Uint8List.fromList(value));
+      if (value.length == 12) {
+        int accX = byteData.getInt32(0, Endian.little);
+        int accY = byteData.getInt32(4, Endian.little);
+        int accZ = byteData.getInt32(8, Endian.little);
+
+        xoutput = (0.9396 * xoutput + 0.0604 * accX).round();
+        youtput = (0.9396 * youtput + 0.0604 * accY).round();
+        zoutput = (0.9396 * zoutput + 0.0604 * accZ).round();
+
+        double xAng = map(accX, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
+        double yAng = map(accY, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
+        double zAng = map(accZ, ADXL355_MIN_VALUE, ADXL355_MAX_VALUE, -90, 90);
+
+        AngleMeasurement angles = calculateAnglesFromDeviceOrientation(
+            xAng, yAng, zAng, BluetoothBloc.instance.currentOrientation);
+
+        obj = {
+          "xAngle": angles.xAngle,
+          "yAngle": angles.yAngle,
+          "zAngle": angles.zAngle
+        };
+      } else if (value.length == 6) {
+        int accX = byteData.getInt16(0, Endian.little);
+        int accY = byteData.getInt16(2, Endian.little);
+        int accZ = byteData.getInt16(4, Endian.little);
+
+        xoutput = (0.9396 * xoutput + 0.0604 * accX).round();
+        youtput = (0.9396 * youtput + 0.0604 * accY).round();
+        zoutput = (0.9396 * zoutput + 0.0604 * accZ).round();
+
+        double xAng = map(accX, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
+        double yAng = map(accY, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
+        double zAng = map(accZ, MPU6050_MIN_VALUE, MPU6050_MAX_VALUE, -90, 90);
+
+        AngleMeasurement angles = calculateAnglesFromDeviceOrientation(
+            xAng, yAng, zAng, BluetoothBloc.instance.currentOrientation);
+
+        obj = {
+          "xAngle": angles.xAngle,
+          "yAngle": angles.yAngle,
+          "zAngle": angles.zAngle
+        };
+      }
+
+      _anglesStreamController.sink.add(obj);
+    }, cancelOnError: true);
+  }
+
+  double map(int value, int low1, int high1, int low2, int high2) {
+    return low2 + ((high2 - low2) * (value - low1) / (high1 - low1));
+  }
+
+  AngleMeasurement calculateAnglesFromDeviceOrientation(
+      double angleX, double angleY, double angleZ, int orientation) {
+    AngleMeasurement angles = AngleMeasurement(0, 0, 0);
+
+    switch (orientation) {
+      case 1:
+        {
+          angles.xAngle = _RAD_TO_DEG * (atan2(angleZ, -angleY) + _PI);
+          angles.yAngle = _RAD_TO_DEG * (atan2(-angleX, -angleZ) + _PI);
+          angles.zAngle = _RAD_TO_DEG * (atan2(-angleZ, -angleX) + _PI);
+          break;
+        }
+      case 2:
+        {
+          angles.xAngle = _RAD_TO_DEG * (atan2(-angleY, -angleZ) + _PI);
+          angles.yAngle = _RAD_TO_DEG * (atan2(-angleX, angleY) + _PI);
+          angles.zAngle = _RAD_TO_DEG * (atan2(-angleY, -angleX) + _PI);
+          break;
+        }
+      case 3:
+        {
+          angles.xAngle = _RAD_TO_DEG * (atan2(-angleY, -angleX) + _PI);
+          angles.yAngle = _RAD_TO_DEG * (atan2(angleZ, angleY) + _PI);
+          angles.zAngle = _RAD_TO_DEG * (atan2(-angleY, angleZ) + _PI);
+          break;
+        }
+      case 4:
+        {
+          angles.xAngle = _RAD_TO_DEG * (atan2(-angleY, angleX) + _PI);
+          angles.yAngle = _RAD_TO_DEG * (atan2(-angleZ, angleY) + _PI);
+          angles.zAngle = _RAD_TO_DEG * (atan2(-angleY, -angleZ) + _PI);
+          break;
+        }
+      case 5:
+        {
+          angles.xAngle = _RAD_TO_DEG * (atan2(-angleY, angleZ) + _PI);
+          angles.yAngle = _RAD_TO_DEG * (atan2(angleX, angleY) + _PI);
+          angles.zAngle = _RAD_TO_DEG * (atan2(-angleY, angleX) + _PI);
+          break;
+        }
+      case 6:
+        {
+          angles.xAngle = _RAD_TO_DEG * (atan2(-angleZ, angleY) + _PI);
+          angles.yAngle = _RAD_TO_DEG * (atan2(-angleX, angleZ) + _PI);
+          angles.zAngle = _RAD_TO_DEG * (atan2(-angleZ, -angleX) + _PI);
+          break;
+        }
+    }
+
+    return angles;
   }
 }
