@@ -146,16 +146,16 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     double zAngleSharedPreferences =
         _sharedPreferences.getDouble('zAngleCalibration') ?? 0;
 
-    double? _caravanWidthSharedPreferences =
+    double? caravanWidthSharedPreferences =
         _sharedPreferences.getDouble('caravanWidth');
 
-    double? _caravanLengthSharedPreferences =
+    double? caravanLengthSharedPreferences =
         _sharedPreferences.getDouble('caravanLength');
 
     double? hitchHeightAngleSharedPreferences =
         _sharedPreferences.getDouble('hitchHeightAngle') ?? 0;
 
-    int? deviceOrientation =
+    int? deviceOrientationSharedPrefrences =
         _sharedPreferences.getInt('deviceOrientation') ?? 1;
 
     int? anglesCalculationSourceSharedPreferences =
@@ -170,18 +170,19 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_DEVICE;
     }
 
-    BluetoothBloc.instance.currentOrientation = deviceOrientation;
+    BluetoothBloc.instance.currentOrientation =
+        deviceOrientationSharedPrefrences;
 
     _xAngleCalibration = xAngleSharedPreferences;
     _yAngleCalibration = yAngleSharedPreferences;
     _zAngleCalibration = zAngleSharedPreferences;
 
-    if (_caravanWidthSharedPreferences != null) {
-      _caravanWidth = _caravanWidthSharedPreferences;
+    if (caravanWidthSharedPreferences != null) {
+      _caravanWidth = caravanWidthSharedPreferences;
     }
 
-    if (_caravanLengthSharedPreferences != null) {
-      _caravanLength = _caravanLengthSharedPreferences;
+    if (caravanLengthSharedPreferences != null) {
+      _caravanLength = caravanLengthSharedPreferences;
     }
 
     _savedHitchAngle = hitchHeightAngleSharedPreferences;
