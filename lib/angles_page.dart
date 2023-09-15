@@ -14,6 +14,7 @@ import 'package:audioplayers/audioplayers.dart';
 
 import 'package:trailer_leveler_app/dfu_update_page.dart';
 import 'package:trailer_leveler_app/device_orientation_page.dart';
+import 'package:trailer_leveler_app/settings_page.dart';
 
 double savedheight = 0;
 
@@ -60,6 +61,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   int? batteryLevel;
 
   bool isSoundMuted = true;
+
+  int anglesCalculationSource = 1;
 
   late Image camperRear;
   late Image camperSide;
@@ -151,6 +154,23 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
     double? hitchHeightAngleSharedPreferences =
         _sharedPreferences.getDouble('hitchHeightAngle') ?? 0;
+
+    int? deviceOrientation =
+        _sharedPreferences.getInt('deviceOrientation') ?? 1;
+
+    int? anglesCalculationSourceSharedPreferences =
+        _sharedPreferences.getInt('anglesCalculationSource') ?? 1;
+
+    anglesCalculationSource = anglesCalculationSourceSharedPreferences;
+    if (anglesCalculationSource == 1) {
+      BluetoothBloc.instance.anglesCalculationSource =
+          ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_PHONE;
+    } else {
+      BluetoothBloc.instance.anglesCalculationSource =
+          ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_DEVICE;
+    }
+
+    BluetoothBloc.instance.currentOrientation = deviceOrientation;
 
     _xAngleCalibration = xAngleSharedPreferences;
     _yAngleCalibration = yAngleSharedPreferences;
@@ -338,6 +358,29 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                 // Then close the drawer
                 Navigator.pop(context);
                 _showDeviceOrientationDialog();
+              },
+            ),
+            ListTile(
+              title: const Row(
+                children: [
+                  SizedBox(
+                    width: 25,
+                    height: 25,
+                    child: Icon(Icons.settings, color: Colors.black54),
+                  ), // Icon you want to add
+                  SizedBox(
+                      width: 8), // Add some spacing between the icon and text
+                  Text(
+                    'Settings',
+                    maxLines: 1,
+                  ),
+                ],
+              ),
+              selected: false,
+              onTap: () async {
+                Navigator.pop(context);
+
+                _showSettingsDialog();
               },
             ),
             ListTile(
@@ -1032,7 +1075,31 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
       },
     );
 
-    await BluetoothBloc.instance.setOrientation(selectedOrientation!);
+    setState(() {
+      BluetoothBloc.instance.currentOrientation = selectedOrientation!;
+    });
+
+    _sharedPreferences.setInt('deviceOrientation', selectedOrientation!);
+    if (BluetoothBloc.instance.anglesCalculationSource ==
+        ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_DEVICE) {
+      await BluetoothBloc.instance.setOrientation(selectedOrientation);
+    }
+  }
+
+  Future<void> _showSettingsDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return StatefulBuilder(builder: (context, setState) {
+          return const FractionallySizedBox(
+            widthFactor: 0.8,
+            heightFactor: 0.4,
+            child: SettingsPage(),
+          );
+        });
+      },
+    );
   }
 
   Future<void> _showDFUDialog() async {
