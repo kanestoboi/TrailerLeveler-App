@@ -1012,7 +1012,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
       return;
     }
 
-    int currentOrientation = await BluetoothBloc.instance.getOrientation();
+    int currentOrientation = BluetoothBloc.instance.currentOrientation;
 
     int? selectedOrientation = await showDialog<int>(
       context: context,

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:collection/collection.dart'; // You have to add this manually, for some reason it cannot be added automatically
+import 'dart:math';
 
 // ignore: constant_identifier_names
 const String DEVICE_INFORMATION_SERVICE_UUID =
@@ -140,7 +141,7 @@ class BluetoothBloc {
   }
 
   Future<void> connectToDevice(BluetoothDevice device) async {
-    accelerometerDataCharacteristicStreamSubscription?.cancel();
+    anglesCharacteristicStreamSubscription?.cancel();
 
     bool connected = true;
     await device
@@ -170,7 +171,7 @@ class BluetoothBloc {
 
     await findDeviceServices(device);
 
-    if (instance.accelerometerService == null) {
+    if (accelerometerService == null) {
       Fluttertoast.showToast(
           msg: "Not a Trailer Leveler",
           toastLength: Toast.LENGTH_SHORT,
