@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ffi';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -8,11 +9,17 @@ import 'package:collection/collection.dart'; // You have to add this manually, f
 import 'dart:math';
 
 // ignore: constant_identifier_names
+const String DEVICE_INFORMATION_SERVICE_UUID =
+    "0000180A-0000-1000-8000-00805F9B34FB";
+// ignore: constant_identifier_names
 const String ACCELEROMETER_SERVICE_UUID =
     "76491400-7DD9-11ED-A1EB-0242AC120002";
 // ignore: constant_identifier_names
 const String BATTERY_LEVEL_SERVICE_UUID =
     "0000180f-0000-1000-8000-00805f9b34fb";
+// ignore: constant_identifier_names
+const String DEVICE_FIRMWARE_CHARACTERISTIC_UUID =
+    "00002A26-0000-1000-8000-00805F9B34FB";
 // ignore: constant_identifier_names
 const String ADXL355_ACCELEROMETER_CHARACTERISTIC_UUID =
     "76491401-7DD9-11ED-A1EB-0242AC120002";
@@ -28,6 +35,8 @@ const String ACCELEROMETER_ORIENTATION_CHARACTERISTIC_UUID =
 // ignore: constant_identifier_names
 const String ACCELEROMETER_CALIBRATION_CHARACTERISTIC_UUID =
     "76491405-7DD9-11ED-A1EB-0242AC120002";
+const String ACCELEROMETER_SAVED_HITCH_ANGLE_CHARACTERISTIC_UUID =
+    "76491406-7DD9-11ED-A1EB-0242AC120002";
 // ignore: constant_identifier_names
 const String BATTERY_LEVEL_CHARACTERISTIC_UUID =
     "00002A19-0000-1000-8000-00805F9B34FB";
@@ -54,24 +63,34 @@ class AngleMeasurement {
   AngleMeasurement(this.xAngle, this.yAngle, this.zAngle);
 }
 
+enum ANGLE_CALCULATION_SOURCE {
+  ANGLES_CALCULATED_ON_DEVICE,
+  ANGLES_CALCULATED_ON_PHONE
+}
+
 class BluetoothBloc {
-  StreamSubscription<List<ScanResult>>? scanResultsStreamSubscription;
-  StreamSubscription<List<int>>? anglesCharacteristicStreamSubscription;
-  StreamSubscription<List<int>>?
-      accelerationDataCharacteristicStreamSubscription;
-
-  BluetoothService? accelerometerService;
-  BluetoothService? batteryLevelService;
-  BluetoothService? deviceInformationService;
-
-  BluetoothCharacteristic? anglesCharacteristic;
-  BluetoothCharacteristic? accelerometerDataCharacteristic;
-  BluetoothCharacteristic? orientationCharacteristic;
-  BluetoothCharacteristic? calibrationCharacteristic;
-  BluetoothCharacteristic? batteryLevelCharacteristic;
-
   // Private static instance of the class
   static final BluetoothBloc _singleton = BluetoothBloc._internal();
+
+  StreamSubscription<List<ScanResult>>? scanResultsStreamSubscription;
+  StreamSubscription<List<int>>?
+      accelerometerDataCharacteristicStreamSubscription;
+  StreamSubscription<List<int>>? anglesCharacteristicStreamSubscription;
+  StreamSubscription<List<int>>? batteryLevelCharacteristicStreamSubscription;
+
+  BluetoothService? deviceInformationService;
+  BluetoothService? accelerometerService;
+  BluetoothService? batteryLevelService;
+
+  BluetoothCharacteristic? firmwareVersionCharacteristic;
+  BluetoothCharacteristic? accelerometerDataCharacteristic;
+  BluetoothCharacteristic? anglesCharacteristic;
+  BluetoothCharacteristic? orientationCharacteristic;
+  BluetoothCharacteristic? calibrationCharacteristic;
+  BluetoothCharacteristic? savedHitchAngleCharacteristic;
+  BluetoothCharacteristic? batteryLevelCharacteristic;
+
+  int currentOrientation = 1;
 
   final _anglesStreamController = StreamController<Map<String, double>>();
   final _batteryLevelStreamController = StreamController<Map<String, int>>();
@@ -79,7 +98,8 @@ class BluetoothBloc {
       StreamController<Map<String, bool>>();
 
   // Declare the subscription variable
-  StreamSubscription<BluetoothConnectionState>? connectionStateSubscription;
+  StreamSubscription<BluetoothConnectionState>?
+      connectionStateStreamSubscription;
 
   Stream<Map<String, double>> get anglesStream =>
       _anglesStreamController.stream;
@@ -87,8 +107,6 @@ class BluetoothBloc {
       _batteryLevelStreamController.stream;
   Stream<Map<String, bool>> get connectionStateStream =>
       _connectionStateStreamController.stream;
-
-  int currentOrientation = 1;
 
   factory BluetoothBloc() {
     return _singleton;
@@ -151,16 +169,7 @@ class BluetoothBloc {
 
     _connectionStateStreamController.sink.add({"connected": true});
 
-    List<BluetoothService> services = await device.discoverServices();
-
-    accelerometerService = services.firstWhereOrNull(
-        (service) => service.uuid == Guid(ACCELEROMETER_SERVICE_UUID));
-
-    if (accelerometerService == null) {
-      debugPrint("Accelerometer Service not found");
-    } else {
-      debugPrint("Accelerometer Service found");
-    }
+    await findDeviceServices(device);
 
     if (accelerometerService == null) {
       Fluttertoast.showToast(
@@ -177,125 +186,60 @@ class BluetoothBloc {
       return;
     }
 
-    anglesCharacteristic = accelerometerService?.characteristics
-        .firstWhereOrNull((characteristic) =>
-            characteristic.uuid ==
-            Guid(ACCELEROMETER_ANGLES_CHARACTERISTIC_UUID));
+    await findDeviceCharacteristics();
 
-    orientationCharacteristic = instance.accelerometerService?.characteristics
-        .firstWhereOrNull((characteristic) =>
-            characteristic.uuid ==
-            Guid(ACCELEROMETER_ORIENTATION_CHARACTERISTIC_UUID));
+    await setAnglesSource(ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_DEVICE);
 
-    if (orientationCharacteristic == null) {
-      debugPrint("Orientation not found");
-      Fluttertoast.showToast(
-          msg: "Orientation char not found",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.CENTER,
-          timeInSecForIosWeb: 1,
-          backgroundColor: Colors.black38,
-          textColor: Colors.white,
-          fontSize: 16.0);
-    } else {
-      debugPrint("Orientation found");
-    }
+    // Start listening to the connection state stream
+    connectionStateStreamSubscription =
+        getConnectionStateStreamSubscription(device);
 
-    calibrationCharacteristic = instance.accelerometerService?.characteristics
-        .firstWhereOrNull((characteristic) =>
-            characteristic.uuid ==
-            Guid(ACCELEROMETER_CALIBRATION_CHARACTERISTIC_UUID));
+    await batteryLevelCharacteristic?.setNotifyValue(true);
+    await batteryLevelCharacteristic?.read();
 
-    if (calibrationCharacteristic == null) {
-      debugPrint("Calibration not found");
-      Fluttertoast.showToast(
-          msg: "Calibration char not found",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.CENTER,
-          timeInSecForIosWeb: 1,
-          backgroundColor: Colors.black38,
-          textColor: Colors.white,
-          fontSize: 16.0);
-    } else {
-      debugPrint("Calibration found");
-    }
-
-    accelerometerDataCharacteristic =
-        getAccelerometerDataCharacteristic(accelerometerService!);
-
-    await accelerometerDataCharacteristic?.setNotifyValue(true);
-
-    accelerationDataCharacteristicStreamSubscription =
-        getAccelerometerDataStreamSubscription();
-
-    await anglesCharacteristic?.setNotifyValue(true);
-
-    anglesCharacteristicStreamSubscription =
-        anglesCharacteristic?.lastValueStream.listen((value) async {
-      if (value.length == 12) {
-        // The bytes are received in 32 bit little endian format so convert them into a numbers
-        ByteData byteData = ByteData.sublistView(Uint8List.fromList(value));
-
-        double accX = byteData.getFloat32(0, Endian.little);
-        double accY = byteData.getFloat32(4, Endian.little);
-        double accZ = byteData.getFloat32(8, Endian.little);
-
-        var obj = {"xAngle": accX, "yAngle": accY, "zAngle": accZ};
-
-        //_anglesStreamController.sink.add(obj);
-      }
-    }, cancelOnError: true);
-
-    // Start listening to the stream
-    connectionStateSubscription =
-        device.connectionState.listen((connectionState) async {
-      switch (connectionState) {
-        case BluetoothConnectionState.disconnected:
-          _connectionStateStreamController.sink.add({"connected": false});
-
-          // Cancel the subscription to stop listening
-          connectionStateSubscription?.cancel();
-          break;
-        default:
-          break;
-      }
-    });
-
-    debugPrint("Looking for battery service");
-    BluetoothService? batterLevelService = services.firstWhereOrNull(
-        (service) => service.uuid == Guid(BATTERY_LEVEL_SERVICE_UUID));
-
-    if (batterLevelService == null) {
-      debugPrint("NO Service Found");
-    } else {
-      debugPrint("Battery Service found");
-    }
-
-    BluetoothCharacteristic? batteryLevelCharacteristic =
-        batterLevelService?.characteristics.firstWhereOrNull((characteristic) =>
-            characteristic.uuid == Guid(BATTERY_LEVEL_CHARACTERISTIC_UUID));
-
-    if (batteryLevelCharacteristic != null) {
-      await batteryLevelCharacteristic.setNotifyValue(true);
-
-      await batteryLevelCharacteristic.read();
-      batteryLevelCharacteristic.lastValueStream.listen((value) async {
-        var obj = {
-          "batteryLevel": value[0],
-        };
-        _batteryLevelStreamController.sink.add(obj);
-      });
-    } else {
-      debugPrint("Characteristic not found!!!");
-    }
-
-    orientationCharacteristic = orientationCharacteristic;
+    batteryLevelCharacteristicStreamSubscription =
+        getBatteryLevelStreamSubscription();
   }
 
   void dispose() {
     _anglesStreamController.close();
     _batteryLevelStreamController.close();
-    connectionStateSubscription?.cancel();
+
+    connectionStateStreamSubscription?.cancel();
+    batteryLevelCharacteristicStreamSubscription?.cancel();
+    accelerometerDataCharacteristicStreamSubscription?.cancel();
+    anglesCharacteristicStreamSubscription?.cancel();
+  }
+
+  Future<void> findDeviceServices(BluetoothDevice device) async {
+    List<BluetoothService> services = await device.discoverServices();
+
+    deviceInformationService = services.firstWhereOrNull(
+        (service) => service.uuid == Guid(DEVICE_INFORMATION_SERVICE_UUID));
+
+    accelerometerService = services.firstWhereOrNull(
+        (service) => service.uuid == Guid(ACCELEROMETER_SERVICE_UUID));
+
+    batteryLevelService = services.firstWhereOrNull(
+        (service) => service.uuid == Guid(BATTERY_LEVEL_SERVICE_UUID));
+
+    if (accelerometerService == null) {
+      debugPrint("Accelerometer Service NOT found");
+    } else {
+      debugPrint("Accelerometer Service found");
+    }
+
+    if (batteryLevelService == null) {
+      debugPrint(" Battery Service NOT found");
+    } else {
+      debugPrint("Battery Service found");
+    }
+
+    if (deviceInformationService == null) {
+      debugPrint("Device Information Service NOT found");
+    } else {
+      debugPrint("Device Information Service found");
+    }
   }
 
   BluetoothCharacteristic? getAccelerometerDataCharacteristic(
@@ -375,6 +319,43 @@ class BluetoothBloc {
     }, cancelOnError: true);
   }
 
+  StreamSubscription<List<int>>? getAnglesStreamSubscription() {
+    return anglesCharacteristic?.lastValueStream.listen((value) async {
+      if (value.length == 12) {
+        // The bytes are received in 32 bit little endian format so convert them into a numbers
+        ByteData byteData = ByteData.sublistView(Uint8List.fromList(value));
+
+        double accX = byteData.getFloat32(0, Endian.little);
+        double accY = byteData.getFloat32(4, Endian.little);
+        double accZ = byteData.getFloat32(8, Endian.little);
+
+        var obj = {"xAngle": accX, "yAngle": accY, "zAngle": accZ};
+
+        _anglesStreamController.sink.add(obj);
+      }
+    }, cancelOnError: true);
+  }
+
+  Future<void> setAnglesSource(ANGLE_CALCULATION_SOURCE source) async {
+    if (source == ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_DEVICE) {
+      debugPrint("Setting Source to device");
+      await accelerometerDataCharacteristic?.setNotifyValue(false);
+      accelerometerDataCharacteristicStreamSubscription?.cancel();
+
+      await anglesCharacteristic?.setNotifyValue(true);
+      anglesCharacteristicStreamSubscription = getAnglesStreamSubscription();
+    } else if (source == ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_PHONE) {
+      debugPrint("Setting Source to phone");
+
+      await anglesCharacteristic?.setNotifyValue(false);
+      anglesCharacteristicStreamSubscription?.cancel();
+
+      await accelerometerDataCharacteristic?.setNotifyValue(true);
+      anglesCharacteristicStreamSubscription =
+          getAccelerometerDataStreamSubscription();
+    }
+  }
+
   double map(int value, int low1, int high1, int low2, int high2) {
     return low2 + ((high2 - low2) * (value - low1) / (high1 - low1));
   }
@@ -429,5 +410,83 @@ class BluetoothBloc {
     }
 
     return angles;
+  }
+
+  Future<void> findDeviceCharacteristics() async {
+    firmwareVersionCharacteristic = deviceInformationService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid == Guid(DEVICE_FIRMWARE_CHARACTERISTIC_UUID));
+
+    anglesCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_ANGLES_CHARACTERISTIC_UUID));
+
+    orientationCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_ORIENTATION_CHARACTERISTIC_UUID));
+
+    calibrationCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_CALIBRATION_CHARACTERISTIC_UUID));
+
+    savedHitchAngleCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_SAVED_HITCH_ANGLE_CHARACTERISTIC_UUID));
+
+    batteryLevelCharacteristic = batteryLevelService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid == Guid(BATTERY_LEVEL_CHARACTERISTIC_UUID));
+
+    accelerometerDataCharacteristic =
+        getAccelerometerDataCharacteristic(accelerometerService!);
+  }
+
+  StreamSubscription<BluetoothConnectionState>?
+      getConnectionStateStreamSubscription(BluetoothDevice device) {
+    return device.connectionState.listen((connectionState) async {
+      switch (connectionState) {
+        case BluetoothConnectionState.disconnected:
+          _connectionStateStreamController.sink.add({"connected": false});
+
+          // Cancel the subscription to stop listening
+          connectionStateStreamSubscription?.cancel();
+
+          accelerometerDataCharacteristic = null;
+          anglesCharacteristic = null;
+          break;
+        default:
+          break;
+      }
+    });
+  }
+
+  StreamSubscription<List<int>>? getBatteryLevelStreamSubscription() {
+    return batteryLevelCharacteristic?.lastValueStream.listen((value) async {
+      var obj = {
+        "batteryLevel": value[0],
+      };
+      _batteryLevelStreamController.sink.add(obj);
+    });
+  }
+
+  Future<String> getFirmwareVersion() async {
+    List<int>? firmwareVersion = await firmwareVersionCharacteristic?.read();
+    String firmwareString = String.fromCharCodes(firmwareVersion!);
+    debugPrint('Firmware Version: $firmwareString');
+
+    return firmwareString;
+  }
+
+  Future<double> getSavedHitchAngle() async {
+    List<int>? hitchAngleBytes = await savedHitchAngleCharacteristic?.read();
+    // The bytes are received in 32 bit little endian format so convert them into a numbers
+    ByteData byteData =
+        ByteData.sublistView(Uint8List.fromList(hitchAngleBytes!));
+
+    return byteData.getFloat32(0, Endian.little);
   }
 }

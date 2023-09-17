@@ -14,6 +14,7 @@ import 'package:audioplayers/audioplayers.dart';
 
 import 'package:trailer_leveler_app/dfu_update_page.dart';
 import 'package:trailer_leveler_app/device_orientation_page.dart';
+import 'package:trailer_leveler_app/settings_page.dart';
 
 double savedheight = 0;
 
@@ -34,9 +35,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   Timer? loopTimer;
   bool isPlaying = false;
 
-  double _xAngleCalibration = 0.0;
-  double _yAngleCalibration = 0.0;
-  double _zAngleCalibration = 0.0;
   double _xAngle = 0.0;
   double _yAngle = 0.0;
   double _zAngle = 0.0;
@@ -118,8 +116,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
       isPlaying = true;
 
-      int interval =
-          100 + ((_xAngle - _xAngleCalibration) * 100.0).toInt().abs();
+      int interval = 100 + ((_xAngle) * 100.0).toInt().abs();
       debugPrint("interval: $interval");
 
       loopTimer = Timer(Duration(milliseconds: interval), () async {
@@ -134,42 +131,19 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   Future<void> setupSharedPreferences() async {
     _sharedPreferences = await SharedPreferences.getInstance();
 
-    double xAngleSharedPreferences =
-        _sharedPreferences.getDouble('xAngleCalibration') ?? 0;
-
-    double yAngleSharedPreferences =
-        _sharedPreferences.getDouble('yAngleCalibration') ?? 0;
-
-    double zAngleSharedPreferences =
-        _sharedPreferences.getDouble('zAngleCalibration') ?? 0;
-
-    double? _caravanWidthSharedPreferences =
+    double? caravanWidthSharedPreferences =
         _sharedPreferences.getDouble('caravanWidth');
 
-    double? _caravanLengthSharedPreferences =
+    double? caravanLengthSharedPreferences =
         _sharedPreferences.getDouble('caravanLength');
 
-    double? hitchHeightAngleSharedPreferences =
-        _sharedPreferences.getDouble('hitchHeightAngle') ?? 0;
-
-    int? deviceOrientation =
-        _sharedPreferences.getInt('deviceOrientation') ?? 1;
-
-    BluetoothBloc.instance.currentOrientation = deviceOrientation;
-
-    _xAngleCalibration = xAngleSharedPreferences;
-    _yAngleCalibration = yAngleSharedPreferences;
-    _zAngleCalibration = zAngleSharedPreferences;
-
-    if (_caravanWidthSharedPreferences != null) {
-      _caravanWidth = _caravanWidthSharedPreferences;
+    if (caravanWidthSharedPreferences != null) {
+      _caravanWidth = caravanWidthSharedPreferences;
     }
 
-    if (_caravanLengthSharedPreferences != null) {
-      _caravanLength = _caravanLengthSharedPreferences;
+    if (caravanLengthSharedPreferences != null) {
+      _caravanLength = caravanLengthSharedPreferences;
     }
-
-    _savedHitchAngle = hitchHeightAngleSharedPreferences;
   }
 
   @override
@@ -267,15 +241,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
                 await _showCalibrationDialog();
 
-                _xAngleCalibration = _xAngle;
-                _yAngleCalibration = _yAngle;
-                _zAngleCalibration = _zAngle;
-                _sharedPreferences.setDouble(
-                    'xAngleCalibration', _xAngleCalibration);
-                _sharedPreferences.setDouble(
-                    'yAngleCalibration', _yAngleCalibration);
-                _sharedPreferences.setDouble(
-                    'zAngleCalibration', _zAngleCalibration);
                 // Then close the drawer
               },
             ),
@@ -343,6 +308,29 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                 // Then close the drawer
                 Navigator.pop(context);
                 _showDeviceOrientationDialog();
+              },
+            ),
+            ListTile(
+              title: const Row(
+                children: [
+                  SizedBox(
+                    width: 25,
+                    height: 25,
+                    child: Icon(Icons.settings, color: Colors.black54),
+                  ), // Icon you want to add
+                  SizedBox(
+                      width: 8), // Add some spacing between the icon and text
+                  Text(
+                    'Settings',
+                    maxLines: 1,
+                  ),
+                ],
+              ),
+              selected: false,
+              onTap: () async {
+                Navigator.pop(context);
+
+                _showSettingsDialog();
               },
             ),
             ListTile(
@@ -472,7 +460,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                       16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
                   child: Center(
                     child: Transform.rotate(
-                      angle: pi / 180.0 * (_xAngle - _xAngleCalibration),
+                      angle: pi / 180.0 * (_xAngle),
                       child: camperRear,
                     ),
                   )),
@@ -553,7 +541,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   }
 
   double getJockeyImageAngle() {
-    return pi / 180 * (getYAngleAdjusted()) * -1;
+    return pi / 180 * _yAngle * -1;
   }
 
   List<bool> isSelected = [
@@ -581,8 +569,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         onPressed: () {
           setState(() {
             isSelected = [false, true];
-            toggleLevelingMode();
           });
+          toggleLevelingMode();
         },
         style: ButtonStyle(
           backgroundColor: MaterialStateProperty.all<Color>(
@@ -628,7 +616,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         : const SizedBox();
   }
 
-  void toggleLevelingMode() {
+  Future<void> toggleLevelingMode() async {
     setState(() {
       switch (currentLevelingMode) {
         case LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT:
@@ -638,13 +626,20 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           currentLevelingMode = LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT;
       }
     });
+
+    switch (currentLevelingMode) {
+      case LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT:
+        _savedHitchAngle = await BluetoothBloc.instance.getSavedHitchAngle();
+        break;
+      default:
+        {}
+    }
   }
 
-  void saveHitchAngle() {
-    setState(() {
-      _savedHitchAngle = _yAngle - _yAngleCalibration;
-      _sharedPreferences.setDouble('hitchHeightAngle', _savedHitchAngle);
-    });
+  Future<void> saveHitchAngle() async {
+    // sending 2 will set the device to save its hitch angle
+    await BluetoothBloc.instance.setCalibration(2);
+    _savedHitchAngle = await BluetoothBloc.instance.getSavedHitchAngle();
   }
 
   Widget getConnectToDeviceWidget() {
@@ -662,7 +657,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     String angleString;
     Color textColor = Colors.black54;
 
-    double adjustedAngle = (_xAngle - _xAngleCalibration);
+    double adjustedAngle = (_xAngle);
     double roundedAngle = (adjustedAngle / 0.05).round() * 0.05;
 
     if ((currentLevelingMode == LevelingMode.LEVEL_TO_LEVEL)) {
@@ -689,7 +684,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     String angleString;
     Color textColor = Colors.black54;
 
-    double roundedAngle = (getYAngleAdjusted() / 0.05).round() * 0.05;
+    double roundedAngle = (_yAngle / 0.05).round() * 0.05;
 
     angleString = '${format.format(roundedAngle)}°';
 
@@ -704,17 +699,12 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     );
   }
 
-  double getYAngleAdjusted() {
-    return _yAngle - _yAngleCalibration;
-  }
-
   Widget getLeftHeightStringWidget() {
     double height;
 
     if (horizontalReference == 'right') {
       height = double.parse(
-          (tan((_xAngle - _xAngleCalibration) * pi / 180.0) * _caravanWidth)
-              .toStringAsFixed(3));
+          (tan((_xAngle) * pi / 180.0) * _caravanWidth).toStringAsFixed(3));
     } else {
       height = 0.0;
     }
@@ -761,8 +751,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
     if (horizontalReference == 'left') {
       height = double.parse(
-          (tan((_xAngle - _xAngleCalibration) * pi / 180.0) * _caravanWidth)
-              .toStringAsFixed(3));
+          (tan((_xAngle) * pi / 180.0) * _caravanWidth).toStringAsFixed(3));
     } else {
       height = 0.0;
     }
@@ -806,30 +795,35 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
   Widget getJockyHeightWidget() {
     double height;
-    if (currentLevelingMode == LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT) {
-      height = double.parse(
-          (tan((getYAngleAdjusted() - _savedHitchAngle) * pi / 180.0) *
-                  _caravanLength *
-                  -1)
-              .toStringAsFixed(3));
-    } else {
-      height = double.parse(
-          (tan((getYAngleAdjusted()) * pi / 180.0) * _caravanLength)
-              .toStringAsFixed(3));
-    }
-
-    var format = NumberFormat("##0.000", "en_US");
-
     String heightString;
     Color textColor = Colors.red;
+    var format = NumberFormat("##0.000", "en_US");
 
-    if (height > 0) {
-      heightString = '$downArrow ${format.format(height.abs())}';
-    } else if (height < 0) {
-      heightString = '$upArrow ${format.format(height.abs())}';
+    if (currentLevelingMode == LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT) {
+      height = double.parse(
+          (tan((_yAngle - _savedHitchAngle) * pi / 180.0) * _caravanLength * -1)
+              .toStringAsFixed(3));
+
+      if (height > 0) {
+        heightString = '$downArrow ${format.format(height.abs())}';
+      } else if (height < 0) {
+        heightString = '$upArrow ${format.format(height.abs())}';
+      } else {
+        heightString = '0.000';
+        textColor = Colors.green;
+      }
     } else {
-      heightString = '0.000';
-      textColor = Colors.green;
+      height = double.parse(
+          (tan((_yAngle) * pi / 180.0) * _caravanLength).toStringAsFixed(3));
+
+      if (height > 0) {
+        heightString = '$upArrow ${format.format(height.abs())}';
+      } else if (height < 0) {
+        heightString = '$downArrow ${format.format(height.abs())}';
+      } else {
+        heightString = '0.000';
+        textColor = Colors.green;
+      }
     }
 
     return Text(
@@ -919,8 +913,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           actions: <Widget>[
             TextButton(
               child: const Text('Overwrite previous height'),
-              onPressed: () {
-                saveHitchAngle();
+              onPressed: () async {
+                await saveHitchAngle();
                 Fluttertoast.showToast(
                   msg: 'Hitch height saved',
                   toastLength: Toast.LENGTH_SHORT,
@@ -1041,8 +1035,23 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
       BluetoothBloc.instance.currentOrientation = selectedOrientation!;
     });
 
-    _sharedPreferences.setInt('deviceOrientation', selectedOrientation!);
-    //await BluetoothBloc.instance.setOrientation(selectedOrientation);
+    await BluetoothBloc.instance.setOrientation(selectedOrientation!);
+  }
+
+  Future<void> _showSettingsDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return StatefulBuilder(builder: (context, setState) {
+          return const FractionallySizedBox(
+            widthFactor: 0.8,
+            heightFactor: 0.4,
+            child: SettingsPage(),
+          );
+        });
+      },
+    );
   }
 
   Future<void> _showDFUDialog() async {
