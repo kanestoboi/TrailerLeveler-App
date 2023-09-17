@@ -9,12 +9,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  List<bool> angleDataSource = [
-    BluetoothBloc.instance.anglesCalculationSource ==
-        ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_DEVICE,
-    BluetoothBloc.instance.anglesCalculationSource ==
-        ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_PHONE,
-  ]; //[0] = save to device, [1] = save to phone
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -38,82 +32,31 @@ class _SettingsPageState extends State<SettingsPage> {
                   textAlign: TextAlign.center,
                 ),
               ),
-              Column(
-                children: [
-                  const Text(
-                    "Select where to store data",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      height: 1,
-                      fontSize: 20,
-                      color: Colors.black54,
-                      decoration: TextDecoration.none,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  toggleDataSourceWidget()
-                ],
+              const Column(
+                children: [],
               ),
             ],
           ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              color: Colors.transparent,
+              width: 60,
+              child: Visibility(
+                visible: true,
+                child: FilledButton(
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Close'),
+                ),
+              ),
+            ),
+          )
         ],
-      ),
-    );
-  }
-
-  List<Widget> _buildToggleButtons() {
-    return [
-      ElevatedButton(
-        onPressed: () {
-          setState(() {
-            angleDataSource = [true, false];
-            BluetoothBloc.instance.setAnglesSource(
-                ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_DEVICE);
-          });
-        },
-        style: ButtonStyle(
-          backgroundColor: MaterialStateProperty.all<Color>(
-            angleDataSource[0] ? Colors.blue : Colors.grey,
-          ),
-        ),
-        child: const Text('Save to Device'),
-      ),
-      ElevatedButton(
-        onPressed: () {
-          setState(() {
-            angleDataSource = [false, true];
-            BluetoothBloc.instance.setAnglesSource(
-                ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_PHONE);
-          });
-        },
-        style: ButtonStyle(
-          backgroundColor: MaterialStateProperty.all<Color>(
-            angleDataSource[1] ? Colors.blue : Colors.grey,
-          ),
-        ),
-        child: const Text('Save to Phone'),
-      ),
-    ];
-  }
-
-  Widget toggleDataSourceWidget() {
-    return Center(
-      child: ToggleButtons(
-        color: Colors.transparent,
-        selectedColor: Colors.transparent,
-        fillColor: Colors.transparent,
-        borderColor: Colors.transparent,
-        selectedBorderColor: Colors.transparent,
-        isSelected: angleDataSource,
-        onPressed: (int index) {
-          debugPrint("Data Source ${index}");
-
-          setState(() {
-            angleDataSource =
-                List.generate(angleDataSource.length, (i) => i == index);
-          });
-        },
-        children: _buildToggleButtons(),
       ),
     );
   }

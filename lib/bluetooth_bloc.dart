@@ -34,6 +34,8 @@ const String ACCELEROMETER_ORIENTATION_CHARACTERISTIC_UUID =
 // ignore: constant_identifier_names
 const String ACCELEROMETER_CALIBRATION_CHARACTERISTIC_UUID =
     "76491405-7DD9-11ED-A1EB-0242AC120002";
+const String ACCELEROMETER_SAVED_HITCH_ANGLE_CHARACTERISTIC_UUID =
+    "76491406-7DD9-11ED-A1EB-0242AC120002";
 // ignore: constant_identifier_names
 const String BATTERY_LEVEL_CHARACTERISTIC_UUID =
     "00002A19-0000-1000-8000-00805F9B34FB";
@@ -61,11 +63,14 @@ class AngleMeasurement {
 }
 
 enum ANGLE_CALCULATION_SOURCE {
-  ANGLES_CALCULATED_ON_PHONE,
-  ANGLES_CALCULATED_ON_DEVICE
+  ANGLES_CALCULATED_ON_DEVICE,
+  ANGLES_CALCULATED_ON_PHONE
 }
 
 class BluetoothBloc {
+  // Private static instance of the class
+  static final BluetoothBloc _singleton = BluetoothBloc._internal();
+
   StreamSubscription<List<ScanResult>>? scanResultsStreamSubscription;
   StreamSubscription<List<int>>?
       accelerometerDataCharacteristicStreamSubscription;
@@ -81,15 +86,10 @@ class BluetoothBloc {
   BluetoothCharacteristic? anglesCharacteristic;
   BluetoothCharacteristic? orientationCharacteristic;
   BluetoothCharacteristic? calibrationCharacteristic;
+  BluetoothCharacteristic? savedHitchAngleCharacteristic;
   BluetoothCharacteristic? batteryLevelCharacteristic;
 
-  ANGLE_CALCULATION_SOURCE anglesCalculationSource =
-      ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_PHONE;
-
   int currentOrientation = 1;
-
-  // Private static instance of the class
-  static final BluetoothBloc _singleton = BluetoothBloc._internal();
 
   final _anglesStreamController = StreamController<Map<String, double>>();
   final _batteryLevelStreamController = StreamController<Map<String, int>>();
@@ -187,7 +187,7 @@ class BluetoothBloc {
 
     await findDeviceCharacteristics();
 
-    await setAnglesSource(anglesCalculationSource);
+    await setAnglesSource(ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_DEVICE);
 
     // Start listening to the connection state stream
     connectionStateStreamSubscription =
@@ -336,8 +336,6 @@ class BluetoothBloc {
   }
 
   Future<void> setAnglesSource(ANGLE_CALCULATION_SOURCE source) async {
-    anglesCalculationSource = source;
-
     if (source == ANGLE_CALCULATION_SOURCE.ANGLES_CALCULATED_ON_DEVICE) {
       debugPrint("Setting Source to device");
       await accelerometerDataCharacteristic?.setNotifyValue(false);
@@ -433,6 +431,11 @@ class BluetoothBloc {
             characteristic.uuid ==
             Guid(ACCELEROMETER_CALIBRATION_CHARACTERISTIC_UUID));
 
+    savedHitchAngleCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_SAVED_HITCH_ANGLE_CHARACTERISTIC_UUID));
+
     batteryLevelCharacteristic = batteryLevelService?.characteristics
         .firstWhereOrNull((characteristic) =>
             characteristic.uuid == Guid(BATTERY_LEVEL_CHARACTERISTIC_UUID));
@@ -450,6 +453,9 @@ class BluetoothBloc {
 
           // Cancel the subscription to stop listening
           connectionStateStreamSubscription?.cancel();
+
+          accelerometerDataCharacteristic = null;
+          anglesCharacteristic = null;
           break;
         default:
           break;
@@ -472,5 +478,14 @@ class BluetoothBloc {
     debugPrint('Firmware Version: $firmwareString');
 
     return firmwareString;
+  }
+
+  Future<double> getSavedHitchAngle() async {
+    List<int>? hitchAngleBytes = await savedHitchAngleCharacteristic?.read();
+    // The bytes are received in 32 bit little endian format so convert them into a numbers
+    ByteData byteData =
+        ByteData.sublistView(Uint8List.fromList(hitchAngleBytes!));
+
+    return byteData.getFloat32(0, Endian.little);
   }
 }
