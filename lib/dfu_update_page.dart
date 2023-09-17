@@ -66,6 +66,8 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
 
   bool dfuRunning = false;
 
+  BluetoothDevice? deviceForDFU;
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -237,6 +239,8 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                       });
                       debugPrint("Link not found");
                     }
+
+                    await BluetoothBloc.instance.connectToDevice(deviceForDFU!);
 
                     setState(() {
                       dfuInProgress = false;
