@@ -489,4 +489,8 @@ class BluetoothBloc {
 
     return byteData.getFloat32(0, Endian.little);
   }
+
+  bool isConnected() {
+    return connectionStateStreamSubscription != null;
+  }
 }

@@ -3,9 +3,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:nordic_dfu/nordic_dfu.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:trailer_leveler_app/bluetooth_bloc.dart';
 
 enum DownloadState {
   DOWNLOAD_NOT_STARTED,
@@ -152,6 +154,19 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                 visible: !dfuInProgress,
                 child: FilledButton(
                   onPressed: () async {
+                    if (!BluetoothBloc.instance.isConnected()) {
+                      Fluttertoast.showToast(
+                        msg: 'Not connected to a device',
+                        toastLength: Toast.LENGTH_SHORT,
+                        gravity: ToastGravity.BOTTOM,
+                        backgroundColor: Colors.grey,
+                        textColor: Colors.white,
+                        fontSize: 16.0,
+                      );
+
+                      return;
+                    }
+
                     setState(() {
                       dfuInProgress = true;
                       currentDownloadState = DownloadState.DOWNLOAD_NOT_STARTED;
@@ -161,6 +176,34 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                     setState(() {
                       currentDownloadState = DownloadState.DOWNLOADING;
                     });
+
+                    String? latestDeviceFirmwareVersion =
+                        await getLatestReleaseAssetVersion();
+
+                    String? currentDeviceVersionNumber =
+                        await BluetoothBloc.instance.getFirmwareVersion();
+
+                    if (latestDeviceFirmwareVersion ==
+                        "v$currentDeviceVersionNumber") {
+                      debugPrint("Latest firmware virsion installed already");
+                      Fluttertoast.showToast(
+                        msg: 'Latest firmware virsion installed already',
+                        toastLength: Toast.LENGTH_SHORT,
+                        gravity: ToastGravity.BOTTOM,
+                        backgroundColor: Colors.grey,
+                        textColor: Colors.white,
+                        fontSize: 16.0,
+                      );
+
+                      setState(() {
+                        dfuInProgress = false;
+                        currentDownloadState =
+                            DownloadState.DOWNLOAD_NOT_STARTED;
+                        currentUploadState = UploadState.UPLOAD_NOT_STARTED;
+                      });
+                      return;
+                    }
+
                     String? link = await getLatestReleaseAssetLink();
 
                     if (link != null) {
@@ -185,9 +228,6 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
 
                         await startDfu(downloadedFile.path);
                         await downloadedFile.delete();
-                        // setState(() {
-                        //   currentUploadState = UploadState.UPLOAD_COMPLETE;
-                        // });
 
                         debugPrint("Deleted File");
                       }
@@ -234,7 +274,7 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
 
   Future<void> startDfu(String filePath) async {
     String? deviceID;
-    BluetoothDevice? deviceForDFU;
+
     List<BluetoothDevice> devices =
         await FlutterBluePlus.connectedSystemDevices;
 
@@ -328,6 +368,28 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
           return asset['browser_download_url'] as String;
         }
       }
+    }
+
+    return null;
+  }
+
+  Future<String?> getLatestReleaseAssetVersion() async {
+    const username = 'kanestoboi';
+    const repo = 'TrailerLeveler-Firmware';
+
+    final response = await http.get(
+      Uri.https('api.github.com', 'repos/$username/$repo/releases/latest'),
+    );
+
+    debugPrint(response.statusCode.toString());
+
+    if (response.statusCode == 200) {
+      final releaseData = json.decode(response.body);
+      final releaseVersion = releaseData['tag_name'] as String;
+
+      debugPrint('VERSION!!!: $releaseVersion');
+
+      return releaseVersion;
     }
 
     return null;
