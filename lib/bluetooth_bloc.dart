@@ -1,14 +1,11 @@
 import 'dart:async';
-import 'dart:ffi';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:nordic_dfu/nordic_dfu.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:collection/collection.dart'; // You have to add this manually, for some reason it cannot be added automatically
-import 'dart:math';
 
 // ignore: constant_identifier_names
 const String DEVICE_INFORMATION_SERVICE_UUID =
