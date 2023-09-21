@@ -1,10 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:nordic_dfu/nordic_dfu.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:trailer_leveler_app/bluetooth_bloc.dart';
@@ -16,19 +15,6 @@ enum DownloadState {
   DOWNLOAD_FAILED
 }
 
-enum UploadState {
-  UPLOAD_NOT_STARTED,
-  UPLOADING,
-  UPLOAD_COMPLETE,
-  UPLOAD_FAILED,
-  UPLOAD_FAILED_NO_DEVICE_CONNECTED,
-}
-
-enum DFUState {
-  DFU_NOT_COMPLETE,
-  DFU_COMPLETE,
-}
-
 Map<DownloadState, String> DownloadStateToString = {
   DownloadState.DOWNLOAD_NOT_STARTED: "",
   DownloadState.DOWNLOADING: "Downloading",
@@ -36,13 +22,15 @@ Map<DownloadState, String> DownloadStateToString = {
   DownloadState.DOWNLOAD_FAILED: "Download Failed",
 };
 
-Map<UploadState, String> UploadStateToString = {
-  UploadState.UPLOAD_NOT_STARTED: "",
-  UploadState.UPLOADING: "Uploading",
-  UploadState.UPLOAD_COMPLETE: "Upload Complete",
-  UploadState.UPLOAD_FAILED: "Upload FAILED",
-  UploadState.UPLOAD_FAILED_NO_DEVICE_CONNECTED:
+Map<DFU_UPLOAD_STATE, String> UploadStateToString = {
+  DFU_UPLOAD_STATE.UPLOAD_NOT_STARTED: "",
+  DFU_UPLOAD_STATE.DISCONNECTING: "Disconnecting",
+  DFU_UPLOAD_STATE.UPLOADING: "Uploading",
+  DFU_UPLOAD_STATE.UPLOAD_COMPLETE: "Upload Complete",
+  DFU_UPLOAD_STATE.UPLOAD_FAILED: "Upload FAILED",
+  DFU_UPLOAD_STATE.UPLOAD_FAILED_NO_DEVICE_CONNECTED:
       "Upload FAILED - No Device Connected",
+  DFU_UPLOAD_STATE.CONNECTING: "Reconnecting",
 };
 
 class DFUUpdatePage extends StatefulWidget {
@@ -56,7 +44,7 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
   bool downloadingLatestRelease = false; // Set this based on your logic
 
   DownloadState currentDownloadState = DownloadState.DOWNLOAD_NOT_STARTED;
-  UploadState currentUploadState = UploadState.UPLOAD_NOT_STARTED;
+  DFU_UPLOAD_STATE currentUploadState = DFU_UPLOAD_STATE.UPLOAD_NOT_STARTED;
 
   double dfuUploadProgress = 0.0;
   bool dfuInProgress = false;
@@ -64,9 +52,34 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
 
   bool deviceConnected = false;
 
-  bool dfuRunning = false;
+  StreamSubscription<int>? dfuProgressSubscription;
+  StreamSubscription<DFU_UPLOAD_STATE>? dfuStateSubscription;
 
-  BluetoothDevice? deviceForDFU;
+  @override
+  void initState() {
+    dfuProgressSubscription =
+        BluetoothBloc.instance.dfuProgressStream.listen((progress) {
+      setState(() {
+        dfuUploadProgress = progress / 100;
+      });
+    });
+
+    dfuStateSubscription =
+        BluetoothBloc.instance.dfuStateStream.listen((uploadState) {
+      setState(() {
+        currentUploadState = uploadState;
+      });
+    });
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    debugPrint("DFU UPDATE PAGE DISPOSE CALLED");
+    super.dispose();
+    dfuProgressSubscription?.cancel();
+    dfuStateSubscription?.cancel();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,8 +124,8 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                     ),
                   ),
                   Visibility(
-                    visible:
-                        currentUploadState != UploadState.UPLOAD_NOT_STARTED,
+                    visible: currentUploadState !=
+                        DFU_UPLOAD_STATE.UPLOAD_NOT_STARTED,
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       color: Colors.transparent,
@@ -128,8 +141,8 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                     ),
                   ),
                   Visibility(
-                    visible:
-                        currentUploadState != UploadState.UPLOAD_NOT_STARTED,
+                    visible: currentUploadState !=
+                        DFU_UPLOAD_STATE.UPLOAD_NOT_STARTED,
                     child: Container(
                       padding: const EdgeInsets.all(26),
                       color: Colors.transparent,
@@ -153,7 +166,9 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
               color: Colors.transparent,
               width: 400,
               child: Visibility(
-                visible: !dfuInProgress,
+                visible:
+                    currentUploadState == DFU_UPLOAD_STATE.UPLOAD_NOT_STARTED ||
+                        currentUploadState == DFU_UPLOAD_STATE.UPLOAD_FAILED,
                 child: FilledButton(
                   onPressed: () async {
                     if (!BluetoothBloc.instance.isConnected()) {
@@ -172,7 +187,7 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                     setState(() {
                       dfuInProgress = true;
                       currentDownloadState = DownloadState.DOWNLOAD_NOT_STARTED;
-                      currentUploadState = UploadState.UPLOAD_NOT_STARTED;
+                      currentUploadState = DFU_UPLOAD_STATE.UPLOAD_NOT_STARTED;
                     });
 
                     setState(() {
@@ -201,7 +216,8 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                         dfuInProgress = false;
                         currentDownloadState =
                             DownloadState.DOWNLOAD_NOT_STARTED;
-                        currentUploadState = UploadState.UPLOAD_NOT_STARTED;
+                        currentUploadState =
+                            DFU_UPLOAD_STATE.UPLOAD_NOT_STARTED;
                       });
                       return;
                     }
@@ -225,10 +241,12 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
 
                       if (await downloadedFile.exists()) {
                         setState(() {
-                          currentUploadState = UploadState.UPLOADING;
+                          currentUploadState = DFU_UPLOAD_STATE.UPLOADING;
                         });
 
                         await startDfu(downloadedFile.path);
+
+                        // Once firmware update has completed, delete the downloaded file
                         await downloadedFile.delete();
 
                         debugPrint("Deleted File");
@@ -240,12 +258,9 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                       debugPrint("Link not found");
                     }
 
-                    await BluetoothBloc.instance.connectToDevice(deviceForDFU!);
-
                     setState(() {
                       dfuInProgress = false;
                     });
-                    //Navigator.of(context).pop();
                   },
                   child: const Text('Start Firmware Update'),
                 ),
@@ -261,10 +276,15 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
               color: Colors.transparent,
               width: 60,
               child: Visibility(
-                visible: !dfuInProgress,
+                visible: currentUploadState ==
+                        DFU_UPLOAD_STATE.UPLOAD_NOT_STARTED ||
+                    currentUploadState == DFU_UPLOAD_STATE.UPLOAD_FAILED ||
+                    currentUploadState == DFU_UPLOAD_STATE.UPLOAD_COMPLETE ||
+                    currentUploadState ==
+                        DFU_UPLOAD_STATE.UPLOAD_FAILED_NO_DEVICE_CONNECTED,
                 child: FilledButton(
                   onPressed: () async {
-                    Navigator.of(context).pop();
+                    Navigator.of(context).pop(context);
                   },
                   child: const Text('Close'),
                 ),
@@ -277,74 +297,11 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
   }
 
   Future<void> startDfu(String filePath) async {
-    String? deviceID;
-
-    List<BluetoothDevice> devices =
-        await FlutterBluePlus.connectedSystemDevices;
-
-    devices.forEach((device) async {
-      if (device.localName == "Trailer Leveler") {
-        deviceID = device.remoteId.toString();
-        deviceForDFU = device;
-
-        await deviceForDFU?.disconnect();
-      }
-    });
-
-    if (deviceID == null) {
-      setState(() {
-        debugPrint("no device id");
-        currentUploadState = UploadState.UPLOAD_FAILED_NO_DEVICE_CONNECTED;
-      });
-      return;
-    }
-
     try {
       debugPrint("Updating");
-      final s = await NordicDfu().startDfu(
-        deviceID!,
-        filePath,
-        fileInAsset: false,
-        onDeviceDisconnecting: (string) {
-          debugPrint('deviceAddress: $string');
-        },
-        onProgressChanged: (
-          deviceAddress,
-          percent,
-          speed,
-          avgSpeed,
-          currentPart,
-          partsTotal,
-        ) {
-          setState(() {
-            dfuUploadProgress = percent / 100;
-          });
 
-          dfuUploadProgress = percent / 100;
-          debugPrint('deviceAddress: $deviceAddress, percent: $percent');
-        },
-        onDfuAborted: (address) => () {
-          debugPrint('ABORTED!!!!!!!');
-        },
-        onFirmwareValidating: (address) {
-          debugPrint('Validating');
-        },
-        onDfuCompleted: (address) {
-          debugPrint('Completed');
-          currentUploadState = UploadState.UPLOAD_COMPLETE;
-        },
-        onError: (address, error, errorType, message) async {
-          debugPrint('Error: ${message}');
-        },
-        onEnablingDfuMode: (address) {
-          debugPrint('Enabling DFU mode');
-        },
-      );
-
-      debugPrint(s);
-      dfuRunning = false;
+      await BluetoothBloc.instance.doDeviceFirmwareUpdate(filePath);
     } catch (e) {
-      dfuRunning = false;
       debugPrint(e.toString());
     }
   }
@@ -353,13 +310,9 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
     const username = 'kanestoboi';
     const repo = 'TrailerLeveler-Firmware';
 
-    debugPrint('api.github.com/repos/$username/$repo/releases/latest');
-
     final response = await http.get(
       Uri.https('api.github.com', 'repos/$username/$repo/releases/latest'),
     );
-
-    debugPrint(response.statusCode.toString());
 
     if (response.statusCode == 200) {
       final releaseData = json.decode(response.body);

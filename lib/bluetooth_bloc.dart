@@ -3,7 +3,9 @@ import 'dart:ffi';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:nordic_dfu/nordic_dfu.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:collection/collection.dart'; // You have to add this manually, for some reason it cannot be added automatically
 import 'dart:math';
@@ -63,6 +65,16 @@ class AngleMeasurement {
   AngleMeasurement(this.xAngle, this.yAngle, this.zAngle);
 }
 
+enum DFU_UPLOAD_STATE {
+  UPLOAD_NOT_STARTED,
+  DISCONNECTING,
+  UPLOADING,
+  UPLOAD_COMPLETE,
+  UPLOAD_FAILED,
+  UPLOAD_FAILED_NO_DEVICE_CONNECTED,
+  CONNECTING,
+}
+
 enum ANGLE_CALCULATION_SOURCE {
   ANGLES_CALCULATED_ON_DEVICE,
   ANGLES_CALCULATED_ON_PHONE
@@ -90,12 +102,19 @@ class BluetoothBloc {
   BluetoothCharacteristic? savedHitchAngleCharacteristic;
   BluetoothCharacteristic? batteryLevelCharacteristic;
 
+  DFU_UPLOAD_STATE currentDFUUploadState = DFU_UPLOAD_STATE.UPLOAD_NOT_STARTED;
+
+  BluetoothDevice? trailerLevelerDevice;
+
   int currentOrientation = 1;
 
   final _anglesStreamController = StreamController<Map<String, double>>();
   final _batteryLevelStreamController = StreamController<Map<String, int>>();
   final _connectionStateStreamController =
       StreamController<Map<String, bool>>();
+  final _dfuProgressStreamController = StreamController<int>.broadcast();
+  final _dfuStateStreamController =
+      StreamController<DFU_UPLOAD_STATE>.broadcast();
 
   // Declare the subscription variable
   StreamSubscription<BluetoothConnectionState>?
@@ -107,6 +126,9 @@ class BluetoothBloc {
       _batteryLevelStreamController.stream;
   Stream<Map<String, bool>> get connectionStateStream =>
       _connectionStateStreamController.stream;
+  Stream<int> get dfuProgressStream => _dfuProgressStreamController.stream;
+  Stream<DFU_UPLOAD_STATE> get dfuStateStream =>
+      _dfuStateStreamController.stream;
 
   factory BluetoothBloc() {
     return _singleton;
@@ -140,8 +162,18 @@ class BluetoothBloc {
     return calibration![0];
   }
 
-  Future<void> connectToDevice(BluetoothDevice device) async {
+  Future<void> connectToDevice(BluetoothDevice? device) async {
     anglesCharacteristicStreamSubscription?.cancel();
+
+    if (device == null && trailerLevelerDevice == null) {
+      return;
+    } else if (device == null && trailerLevelerDevice != null) {
+      device = trailerLevelerDevice;
+    }
+
+    if (device == null) {
+      return;
+    }
 
     bool connected = true;
     await device
@@ -160,12 +192,16 @@ class BluetoothBloc {
           backgroundColor: Colors.red,
           textColor: Colors.white,
           fontSize: 16.0);
+
+      _connectionStateStreamController.sink.add({"connected": false});
     });
 
     if (!connected) {
       debugPrint("Not Connected");
       return;
     }
+
+    trailerLevelerDevice = device;
 
     _connectionStateStreamController.sink.add({"connected": true});
 
@@ -492,5 +528,70 @@ class BluetoothBloc {
 
   bool isConnected() {
     return connectionStateStreamSubscription != null;
+  }
+
+  void setBluetoothDeviceMACAddress(String MACAddress) {
+    trailerLevelerDevice = BluetoothDevice(
+        remoteId: DeviceIdentifier(MACAddress),
+        localName: "",
+        type: BluetoothDeviceType.le);
+  }
+
+  String? getBluetoothDeviceMACAddress() {
+    return trailerLevelerDevice?.remoteId.toString();
+  }
+
+  Future<void> doDeviceFirmwareUpdate(String filePath) async {
+    if (trailerLevelerDevice == null) {
+      currentDFUUploadState =
+          DFU_UPLOAD_STATE.UPLOAD_FAILED_NO_DEVICE_CONNECTED;
+      _dfuStateStreamController.sink.add(currentDFUUploadState);
+      return;
+    }
+
+    currentDFUUploadState = DFU_UPLOAD_STATE.DISCONNECTING;
+    _dfuStateStreamController.sink.add(currentDFUUploadState);
+
+    await trailerLevelerDevice?.disconnect();
+
+    await NordicDfu().startDfu(
+      trailerLevelerDevice!.remoteId.toString(),
+      filePath,
+      fileInAsset: false,
+      onDeviceDisconnecting: (string) {
+        debugPrint('deviceAddress: $string');
+      },
+      onProgressChanged: (
+        deviceAddress,
+        percent,
+        speed,
+        avgSpeed,
+        currentPart,
+        partsTotal,
+      ) {
+        currentDFUUploadState = DFU_UPLOAD_STATE.UPLOADING;
+        _dfuStateStreamController.sink.add(currentDFUUploadState);
+        _dfuProgressStreamController.sink.add(percent);
+      },
+      onDfuAborted: (address) => () {
+        debugPrint('ABORTED!!!!!!!');
+      },
+      onFirmwareValidating: (address) {
+        debugPrint('Validating');
+      },
+      onDfuCompleted: (address) {
+        debugPrint('Completed');
+        _dfuStateStreamController.sink.add(DFU_UPLOAD_STATE.UPLOAD_COMPLETE);
+      },
+      onError: (address, error, errorType, message) async {
+        debugPrint('Error: $message');
+        _dfuStateStreamController.sink.add(DFU_UPLOAD_STATE.UPLOAD_FAILED);
+      },
+      onEnablingDfuMode: (address) {
+        debugPrint('Enabling DFU mode');
+      },
+    );
+
+    await connectToDevice(null);
   }
 }
