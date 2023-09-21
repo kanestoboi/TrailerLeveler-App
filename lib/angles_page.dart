@@ -23,6 +23,12 @@ enum LevelingMode {
   LEVEL_TO_SAVED_HITCH_HEIGHT,
 }
 
+enum CONNECT_BUTTON_STATE {
+  CONNECTING_TO_DEVICE,
+  CONNECTED_TO_DEVICE,
+  DISCONNECTED_FROM_DEVICE
+}
+
 class AnglesPage extends StatefulWidget {
   const AnglesPage({Key? key}) : super(key: key);
 
@@ -62,6 +68,9 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   late Image camperRear;
   late Image camperSide;
 
+  CONNECT_BUTTON_STATE connectButtonState =
+      CONNECT_BUTTON_STATE.DISCONNECTED_FROM_DEVICE;
+
   // save in the state for caching!
   late SharedPreferences _sharedPreferences;
 
@@ -71,12 +80,32 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   void initState() {
     audioPlayer = AudioPlayer();
 
+    listenToBluetoothBlocStreams();
+
     camperRear = Image.asset("images/caravan_rear.png", width: 125);
     camperSide = Image.asset(
       "images/caravan_side.png",
       width: 350,
     );
     super.initState();
+
+    // setup the shared prefrences and then get the length and width stored
+    setupSharedPreferences().then((value) {
+      if (_caravanWidth == 0.0001 && _caravanLength == 0.0001) {
+        _caravanWidth = 1.0;
+        _caravanLength = 1.0;
+        _showDimensionsDialog();
+      }
+
+      if (BluetoothBloc.instance.trailerLevelerDevice != null) {
+        setState(() {
+          connectButtonState = CONNECT_BUTTON_STATE.CONNECTING_TO_DEVICE;
+        });
+
+        BluetoothBloc.instance
+            .connectToDevice(BluetoothBloc.instance.trailerLevelerDevice);
+      }
+    });
   }
 
   /// Did Change Dependencies
@@ -137,6 +166,9 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     double? caravanLengthSharedPreferences =
         _sharedPreferences.getDouble('caravanLength');
 
+    String? bluetoothDeviceMACSharedPreferences =
+        _sharedPreferences.getString('bluetoothDeviceMAC');
+
     if (caravanWidthSharedPreferences != null) {
       _caravanWidth = caravanWidthSharedPreferences;
     }
@@ -144,21 +176,17 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     if (caravanLengthSharedPreferences != null) {
       _caravanLength = caravanLengthSharedPreferences;
     }
+
+    if (bluetoothDeviceMACSharedPreferences != null) {
+      BluetoothBloc.instance
+          .setBluetoothDeviceMACAddress(bluetoothDeviceMACSharedPreferences);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     // Perform an action after the build is completed
-    SchedulerBinding.instance.addPostFrameCallback((durarion) {
-      // setup the shared prefrences and then get the length and width stored
-      setupSharedPreferences().then((value) {
-        if (_caravanWidth == 0.0001 && _caravanLength == 0.0001) {
-          _caravanWidth = 1.0;
-          _caravanLength = 1.0;
-          _showDimensionsDialog();
-        }
-      });
-    });
+    SchedulerBinding.instance.addPostFrameCallback((durarion) {});
 
     return Scaffold(
       appBar: PreferredSize(
@@ -385,41 +413,10 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
             ));
     await Navigator.of(context).push(bluetoothDevicesPageRoute);
 
-    BluetoothBloc.instance.anglesStream.listen((value) {
-      setState(() {
-        if (value['xAngle'] != null) {
-          _xAngle = value['xAngle']!;
-        }
-        if (value['yAngle'] != null) {
-          _yAngle = value['yAngle']!;
-        }
-        if (value['zAngle'] != null) {
-          _zAngle = value['zAngle']!;
-        }
-      });
-    });
-
-    BluetoothBloc.instance.connectionStateStream.listen((value) {
-      if (value['connected'] != null) {
-        if (value['connected'] == true) {
-          deviceConnected = true;
-          loopAudio();
-        } else {
-          deviceConnected = false;
-          _showDisconnectedDialog();
-        }
-      }
-
-      setState(() {});
-    });
-
-    BluetoothBloc.instance.batteryLevelStream.listen((value) {
-      if (value['batteryLevel'] != null) {
-        batteryLevel = value['batteryLevel'];
-      }
-
-      setState(() {});
-    });
+    if (BluetoothBloc.instance.trailerLevelerDevice != null) {
+      _sharedPreferences.setString("bluetoothDeviceMAC",
+          BluetoothBloc.instance.trailerLevelerDevice!.remoteId.toString());
+    }
   }
 
   Future<void> _showDisconnectedDialog() async {
@@ -643,12 +640,27 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   }
 
   Widget getConnectToDeviceWidget() {
-    return !deviceConnected
-        ? FilledButton(
+    switch (connectButtonState) {
+      case CONNECT_BUTTON_STATE.CONNECTED_TO_DEVICE:
+        {
+          return const SizedBox();
+        }
+      case CONNECT_BUTTON_STATE.DISCONNECTED_FROM_DEVICE:
+        {
+          return FilledButton(
             onPressed: _navigateToBluetoothDevicesPage,
             child: const Text('Connect to Device'),
-          )
-        : const SizedBox();
+          );
+        }
+
+      case CONNECT_BUTTON_STATE.CONNECTING_TO_DEVICE:
+        {
+          return FilledButton(
+            onPressed: () {},
+            child: const Text('Connecting'),
+          );
+        }
+    }
   }
 
   Widget getXAngleStringWidget() {
@@ -1068,5 +1080,50 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         });
       },
     );
+  }
+
+  void listenToBluetoothBlocStreams() {
+    BluetoothBloc.instance.anglesStream.listen((value) {
+      setState(() {
+        if (value['xAngle'] != null) {
+          _xAngle = value['xAngle']!;
+        }
+        if (value['yAngle'] != null) {
+          _yAngle = value['yAngle']!;
+        }
+        if (value['zAngle'] != null) {
+          _zAngle = value['zAngle']!;
+        }
+      });
+    });
+
+    BluetoothBloc.instance.connectionStateStream.listen((value) {
+      if (value['connected'] != null) {
+        if (value['connected'] == true) {
+          connectButtonState = CONNECT_BUTTON_STATE.CONNECTED_TO_DEVICE;
+          deviceConnected = true;
+          loopAudio();
+        } else {
+          connectButtonState = CONNECT_BUTTON_STATE.DISCONNECTED_FROM_DEVICE;
+
+          deviceConnected = false;
+
+          if (BluetoothBloc.instance.currentDFUUploadState !=
+              DFU_UPLOAD_STATE.DISCONNECTING) {
+            _showDisconnectedDialog();
+          }
+        }
+      }
+
+      setState(() {});
+    });
+
+    BluetoothBloc.instance.batteryLevelStream.listen((value) {
+      if (value['batteryLevel'] != null) {
+        batteryLevel = value['batteryLevel'];
+      }
+
+      setState(() {});
+    });
   }
 }
