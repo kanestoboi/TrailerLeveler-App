@@ -512,7 +512,6 @@ class BluetoothBloc {
   Future<String> getFirmwareVersion() async {
     List<int>? firmwareVersion = await firmwareVersionCharacteristic?.read();
     String firmwareString = String.fromCharCodes(firmwareVersion!);
-    debugPrint('Firmware Version: $firmwareString');
 
     return firmwareString;
   }

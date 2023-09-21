@@ -344,8 +344,6 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
       final releaseData = json.decode(response.body);
       final releaseVersion = releaseData['tag_name'] as String;
 
-      debugPrint('VERSION!!!: $releaseVersion');
-
       return releaseVersion;
     }
 
