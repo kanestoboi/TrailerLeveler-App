@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:trailer_leveler_app/CircularBorder.dart';
 import 'package:trailer_leveler_app/bluetooth_bloc.dart';
 import 'package:trailer_leveler_app/bluetooth_devices.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +16,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:trailer_leveler_app/dfu_update_page.dart';
 import 'package:trailer_leveler_app/device_orientation_page.dart';
 import 'package:trailer_leveler_app/settings_page.dart';
+
+import 'package:trailer_leveler_app/CircularBorder.dart';
 
 double savedheight = 0;
 
@@ -594,14 +597,16 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                 ]),
               ),
               Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                      16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
-                  child: Center(
-                    child: Transform.rotate(
-                      angle: pi / 180.0 * (_xAngle),
-                      child: camperRear,
-                    ),
-                  )),
+                padding: EdgeInsets.all(5),
+                child: CircularBorder(
+                  color: Colors.grey,
+                  centerWidget: Transform.rotate(
+                    angle: pi / 180.0 * (_xAngle),
+                    child: camperRear,
+                  ),
+                  centerWidgetSize: 110,
+                ),
+              ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: <Widget>[
@@ -620,15 +625,27 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                 ],
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
-                child: Center(
-                  child: Transform.rotate(
+                padding: EdgeInsets.all(5),
+                child: CircularBorder(
+                  size: 230,
+                  color: Colors.grey,
+                  centerWidget: Transform.rotate(
                     angle: getJockeyImageAngle(),
                     child: camperSide,
                   ),
+                  centerWidgetSize: 200,
                 ),
               ),
+              // Padding(
+              //   padding: const EdgeInsets.fromLTRB(
+              //       16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
+              //   child: Center(
+              //     child: Transform.rotate(
+              //       angle: getJockeyImageAngle(),
+              //       child: camperSide,
+              //     ),
+              //   ),
+              // ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: <Widget>[
