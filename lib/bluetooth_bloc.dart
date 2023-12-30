@@ -159,6 +159,14 @@ class BluetoothBloc {
     return calibration![0];
   }
 
+  String getDeviceName() {
+    if (trailerLevelerDevice?.localName != null) {
+      return trailerLevelerDevice!.localName.toUpperCase();
+    } else {
+      return "UNKNOWN DEVICE";
+    }
+  }
+
   Future<void> connectToDevice(BluetoothDevice? device) async {
     anglesCharacteristicStreamSubscription?.cancel();
 

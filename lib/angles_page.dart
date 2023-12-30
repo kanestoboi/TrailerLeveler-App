@@ -447,11 +447,152 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   }
 
   Widget getLevelIndicatorWidget() {
+    double screenWidth = MediaQuery.of(context).size.width;
+
     return Stack(
       children: [
         Center(
           child: Column(
             children: [
+              Container(
+                width: screenWidth * 0.95, // Width of the box
+                height: 110, // Height of the box
+                padding:
+                    EdgeInsets.all(9.0), // Adding 16.0 padding to all sides
+
+                decoration: BoxDecoration(
+                  borderRadius:
+                      BorderRadius.circular(20.0), // Adding rounded corners
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1), // Shadow color
+                      spreadRadius: 2, // Spread radius
+                      blurRadius: 6, // Blur radius
+                      offset: const Offset(0, 3), // Shadow offset
+                    ),
+                  ],
+                  color: Colors.white,
+
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 1.0,
+                  ),
+                ),
+                child: Row(children: [
+                  Expanded(
+                      flex: 3,
+                      child: Container(
+                          child: Column(
+                        crossAxisAlignment: CrossAxisAlignment
+                            .start, // Aligns children to the start (left)
+                        children: [
+                          Expanded(
+                              flex: 1,
+                              child: RichText(
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    fontWeight:
+                                        FontWeight.bold, // Making the text bold
+                                    fontFamily: 'Inter',
+                                    color: const Color(0xFF737373)
+                                        .withOpacity(0.4),
+                                    fontSize: 12.0,
+                                    height: 14.52 / 12,
+                                  ),
+                                  children: [
+                                    const TextSpan(
+                                      text: "Product ID: ",
+                                    ),
+                                    TextSpan(
+                                      text: BluetoothBloc.instance
+                                          .getBluetoothDeviceMACAddress(),
+                                      style: TextStyle(
+                                        color: const Color(0xFF2196F3).withOpacity(
+                                            0.4), // Changing the color of the number part
+                                        // You can add more style properties here if needed
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                          Expanded(
+                              flex: 2,
+                              child: Text(
+                                BluetoothBloc.instance.getDeviceName(),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Inter',
+                                    color: Color(0xFF2F2F2F),
+                                    fontSize: 16.0,
+                                    height: 19.36 / 16.0),
+                              )),
+                          Expanded(
+                              flex: 2,
+                              child: Container(
+                                padding: EdgeInsets.all(0),
+                                width: 80,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(20.0),
+                                  color: Color.fromARGB(255, 255, 255, 255)
+                                      .withOpacity(0.07),
+                                  border: Border.all(
+                                    color: Color.fromARGB(255, 255, 255, 255)
+                                        .withOpacity(0.07),
+                                    width: 0.5,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 25,
+                                        height: 25,
+                                        child: ColorFiltered(
+                                          colorFilter: ColorFilter.mode(
+                                            Colors
+                                                .black54, // Replace with the color you want
+                                            BlendMode.srcIn,
+                                          ),
+                                          child: getBatteryIcon(),
+                                        ),
+                                      ), // Icon you want to add
+                                      // Add some spacing between the icon and text
+                                      Align(
+                                          alignment: Alignment.centerRight,
+                                          child: Text(
+                                            getBatteryLevelString(),
+                                            maxLines: 1,
+                                          )),
+                                    ],
+                                  ),
+                                ),
+                              ))
+                        ],
+                      ))),
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      children: [
+                        Expanded(flex: 3, child: camperSide),
+                        Expanded(
+                            flex: 1,
+                            child: Text(
+                              BluetoothBloc.instance.isConnected()
+                                  ? "Connected"
+                                  : "Disconnected",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                color: Color(0xFF2F2F2F),
+                              ),
+                            ))
+                      ],
+                    ),
+                  )
+                ]),
+              ),
               Padding(
                   padding: const EdgeInsets.fromLTRB(
                       16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
@@ -462,17 +603,18 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                     ),
                   )),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: <Widget>[
-                  Expanded(
-                    flex: 2,
+                  Container(
+                    alignment: Alignment.center,
                     child: getLeftHeightStringWidget(),
                   ),
-                  Expanded(
-                    flex: 1,
+                  Container(
+                    alignment: Alignment.center,
                     child: getXAngleStringWidget(),
                   ),
-                  Expanded(
-                    flex: 2,
+                  Container(
+                    alignment: Alignment.center,
                     child: getRightHeightStringWidget(),
                   ),
                 ],
@@ -488,17 +630,17 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                 ),
               ),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: <Widget>[
-                  Expanded(
-                    flex: 2,
+                  Container(
+                    alignment: Alignment.center,
                     child: getJockyHeightWidget(),
                   ),
-                  Expanded(
-                    flex: 1,
+                  Container(
+                    alignment: Alignment.center,
                     child: getYAngleStringWidget(),
                   ),
-                  const Expanded(
-                    flex: 2,
+                  Container(
                     child: SizedBox(),
                   )
                 ],
@@ -535,6 +677,22 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         )
       ],
     );
+  }
+
+  Widget getBatteryIcon() {
+    if (batteryLevel != null) {
+      return SvgPicture.asset(
+        'assets/battery-full.svg', // Replace with your SVG image path
+        width: 20, // Adjust the width as needed
+        height: 20, // Adjust the height as needed
+      );
+    } else {
+      return SvgPicture.asset(
+        'assets/battery-disable.svg', // Replace with your SVG image path
+        width: 20, // Adjust the width as needed
+        height: 20, // Adjust the height as needed
+      );
+    }
   }
 
   double getJockeyImageAngle() {
@@ -733,7 +891,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         heightString = '$upArrow ${format.format(height.abs())}';
       } else {
         heightString = '0.000';
-        textColor = Colors.green;
+        textColor = Color(0xFF4CB050);
       }
     } else {
       heightString = '0.000';
@@ -747,12 +905,23 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         });
       },
       child: Container(
-        height: 50, // Set the desired fixed height
+        width: 150,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20.0),
+          color: Colors.white,
+          border: Border.all(
+            color: textColor,
+            width: 1.0,
+          ),
+        ),
         child: Text(
           heightString,
           textAlign: TextAlign.center,
           style: TextStyle(
-              fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+              fontSize: 36,
+              color: textColor,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Inter'),
         ),
       ),
     );
@@ -794,12 +963,23 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         });
       },
       child: Container(
-        height: 50, // Set the desired fixed height
+        width: 150,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20.0),
+          color: Colors.white,
+          border: Border.all(
+            color: textColor,
+            width: 1.0,
+          ),
+        ),
         child: Text(
           heightString,
           textAlign: TextAlign.center,
           style: TextStyle(
-              fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+              fontSize: 36,
+              color: textColor,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Inter'),
         ),
       ),
     );
@@ -838,12 +1018,39 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
       }
     }
 
-    return Text(
-      heightString,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-          fontSize: 36, color: textColor, fontWeight: FontWeight.bold),
+    return Container(
+      width: 150,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20.0),
+        color: Colors.white,
+        border: Border.all(
+          color: textColor,
+          width: 1.0,
+        ),
+      ),
+      child: Text(
+        heightString,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+            fontSize: 36,
+            color: textColor,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Inter'),
+      ),
     );
+  }
+
+  String getBatteryLevelString() {
+    var format = NumberFormat("###", "en_US");
+
+    String batteryLevelString;
+    if (batteryLevel != null) {
+      batteryLevelString = "${format.format(batteryLevel)}%";
+    } else {
+      batteryLevelString = "";
+    }
+
+    return batteryLevelString;
   }
 
   Widget getBatteryLevelWidget() {
