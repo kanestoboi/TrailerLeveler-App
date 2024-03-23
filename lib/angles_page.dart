@@ -603,18 +603,14 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                 ]),
               ),
               Padding(
-                padding: EdgeInsets.all(5),
-                child: CircularBorder(
-                  color: Colors.grey,
-                  centerWidget: Transform.rotate(
-                    angle: pi / 180.0 * (_xAngle),
-                    child: camperRear,
-                  ),
-                  centerWidgetSize: 110,
-                  newLineAngle: 1,
-                  newLineColor: Colors.red,
-                ),
-              ),
+                  padding: const EdgeInsets.fromLTRB(
+                      16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
+                  child: Center(
+                    child: Transform.rotate(
+                      angle: pi / 180.0 * (_xAngle),
+                      child: camperRear,
+                    ),
+                  )),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: <Widget>[
@@ -633,17 +629,14 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                 ],
               ),
               Padding(
-                padding: EdgeInsets.all(5),
-                child: CircularBorder(
-                    size: 230,
-                    color: Colors.grey,
-                    centerWidget: Transform.rotate(
-                      angle: getJockeyImageAngle(),
-                      child: camperSide,
-                    ),
-                    centerWidgetSize: 200,
-                    newLineAngle: 10,
-                    newLineColor: Colors.red),
+                padding: const EdgeInsets.fromLTRB(
+                    16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
+                child: Center(
+                  child: Transform.rotate(
+                    angle: getJockeyImageAngle(),
+                    child: camperSide,
+                  ),
+                ),
               ),
               // Padding(
               //   padding: const EdgeInsets.fromLTRB(
