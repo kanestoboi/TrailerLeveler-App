@@ -17,6 +17,9 @@ const String ACCELEROMETER_SERVICE_UUID =
 const String BATTERY_LEVEL_SERVICE_UUID =
     "0000180f-0000-1000-8000-00805f9b34fb";
 // ignore: constant_identifier_names
+const String ENVIRONMENTAL_SENSING_SERVICE_UUID =
+    "0000181A-0000-1000-8000-00805f9b34fb";
+// ignore: constant_identifier_names
 const String DEVICE_FIRMWARE_CHARACTERISTIC_UUID =
     "00002A26-0000-1000-8000-00805F9B34FB";
 // ignore: constant_identifier_names
@@ -39,6 +42,9 @@ const String ACCELEROMETER_SAVED_HITCH_ANGLE_CHARACTERISTIC_UUID =
 // ignore: constant_identifier_names
 const String BATTERY_LEVEL_CHARACTERISTIC_UUID =
     "00002A19-0000-1000-8000-00805F9B34FB";
+// ignore: constant_identifier_names
+const String TEMPERATURE_CHARACTERISTIC_UUID =
+    "00002A6E-0000-1000-8000-00805F9B34FB";
 
 const int MPU6050_MAX_VALUE = 32767;
 const int MPU6050_MIN_VALUE = -32768;
@@ -86,10 +92,12 @@ class BluetoothBloc {
       accelerometerDataCharacteristicStreamSubscription;
   StreamSubscription<List<int>>? anglesCharacteristicStreamSubscription;
   StreamSubscription<List<int>>? batteryLevelCharacteristicStreamSubscription;
+  StreamSubscription<List<int>>? temperatureCharacteristicStreamSubscription;
 
   BluetoothService? deviceInformationService;
   BluetoothService? accelerometerService;
   BluetoothService? batteryLevelService;
+  BluetoothService? environmentalSensingService;
 
   BluetoothCharacteristic? firmwareVersionCharacteristic;
   BluetoothCharacteristic? accelerometerDataCharacteristic;
@@ -98,6 +106,7 @@ class BluetoothBloc {
   BluetoothCharacteristic? calibrationCharacteristic;
   BluetoothCharacteristic? savedHitchAngleCharacteristic;
   BluetoothCharacteristic? batteryLevelCharacteristic;
+  BluetoothCharacteristic? temperatureCharacteristic;
 
   DFU_UPLOAD_STATE currentDFUUploadState = DFU_UPLOAD_STATE.UPLOAD_NOT_STARTED;
 
@@ -107,6 +116,7 @@ class BluetoothBloc {
 
   final _anglesStreamController = StreamController<Map<String, double>>();
   final _batteryLevelStreamController = StreamController<Map<String, int>>();
+  final _temperatureStreamController = StreamController<Map<String, double>>();
   final _connectionStateStreamController =
       StreamController<Map<String, bool>>();
   final _dfuProgressStreamController = StreamController<int>.broadcast();
@@ -121,6 +131,8 @@ class BluetoothBloc {
       _anglesStreamController.stream;
   Stream<Map<String, int>> get batteryLevelStream =>
       _batteryLevelStreamController.stream;
+  Stream<Map<String, double>> get temperatureStream =>
+      _temperatureStreamController.stream;
   Stream<Map<String, bool>> get connectionStateStream =>
       _connectionStateStreamController.stream;
   Stream<int> get dfuProgressStream => _dfuProgressStreamController.stream;
@@ -235,6 +247,11 @@ class BluetoothBloc {
     connectionStateStreamSubscription =
         getConnectionStateStreamSubscription(device);
 
+    temperatureCharacteristicStreamSubscription =
+        getTemperatureStreamSubscription();
+
+    await temperatureCharacteristic?.setNotifyValue(true);
+
     await batteryLevelCharacteristic?.setNotifyValue(true);
     await batteryLevelCharacteristic?.read();
 
@@ -264,6 +281,9 @@ class BluetoothBloc {
     batteryLevelService = services.firstWhereOrNull(
         (service) => service.uuid == Guid(BATTERY_LEVEL_SERVICE_UUID));
 
+    environmentalSensingService = services.firstWhereOrNull(
+        (service) => service.uuid == Guid(ENVIRONMENTAL_SENSING_SERVICE_UUID));
+
     if (accelerometerService == null) {
       debugPrint("Accelerometer Service NOT found");
     } else {
@@ -280,6 +300,12 @@ class BluetoothBloc {
       debugPrint("Device Information Service NOT found");
     } else {
       debugPrint("Device Information Service found");
+    }
+
+    if (environmentalSensingService == null) {
+      debugPrint("Environmental Sensing Service NOT found");
+    } else {
+      debugPrint("Environmental Sensing Service found");
     }
   }
 
@@ -482,6 +508,10 @@ class BluetoothBloc {
         .firstWhereOrNull((characteristic) =>
             characteristic.uuid == Guid(BATTERY_LEVEL_CHARACTERISTIC_UUID));
 
+    temperatureCharacteristic = environmentalSensingService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid == Guid(TEMPERATURE_CHARACTERISTIC_UUID));
+
     accelerometerDataCharacteristic =
         getAccelerometerDataCharacteristic(accelerometerService!);
   }
@@ -511,6 +541,18 @@ class BluetoothBloc {
         "batteryLevel": value[0],
       };
       _batteryLevelStreamController.sink.add(obj);
+    });
+  }
+
+  StreamSubscription<List<int>>? getTemperatureStreamSubscription() {
+    return temperatureCharacteristic?.lastValueStream.listen((value) async {
+      if (value.length == 2) {
+        ByteData byteData = ByteData.sublistView(Uint8List.fromList(value));
+        double temperature = byteData.getInt16(0, Endian.little) / 100.0;
+
+        var obj = {"temperature": temperature};
+        _temperatureStreamController.sink.add(obj);
+      }
     });
   }
 

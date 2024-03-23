@@ -18,6 +18,7 @@ import 'package:trailer_leveler_app/device_orientation_page.dart';
 import 'package:trailer_leveler_app/settings_page.dart';
 
 import 'package:trailer_leveler_app/CircularBorder.dart';
+import 'package:trailer_leveler_app/FileStorage.dart';
 
 double savedheight = 0;
 
@@ -48,6 +49,11 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   double _yAngle = 0.0;
   double _zAngle = 0.0;
 
+  List<AngleDataPoint> xAngleReadings = [];
+  List<AngleDataPoint> yAngleReadings = [];
+  List<AngleDataPoint> zAngleReadings = [];
+  List<TemperatureDataPoint> temperatureReadings = [];
+
   double _savedHitchAngle =
       0; // The angle the device it at when hitch height is saved
 
@@ -65,6 +71,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
   bool deviceConnected = false;
   int? batteryLevel;
+  double? temperature;
 
   bool isSoundMuted = true;
 
@@ -229,7 +236,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                             ),
                           ),
                         ),
-                        getBatteryLevelWidget(),
                       ]))
 
           // StreamBuilder
@@ -605,6 +611,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                     child: camperRear,
                   ),
                   centerWidgetSize: 110,
+                  newLineAngle: 1,
+                  newLineColor: Colors.red,
                 ),
               ),
               Row(
@@ -627,14 +635,15 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
               Padding(
                 padding: EdgeInsets.all(5),
                 child: CircularBorder(
-                  size: 230,
-                  color: Colors.grey,
-                  centerWidget: Transform.rotate(
-                    angle: getJockeyImageAngle(),
-                    child: camperSide,
-                  ),
-                  centerWidgetSize: 200,
-                ),
+                    size: 230,
+                    color: Colors.grey,
+                    centerWidget: Transform.rotate(
+                      angle: getJockeyImageAngle(),
+                      child: camperSide,
+                    ),
+                    centerWidgetSize: 200,
+                    newLineAngle: 10,
+                    newLineColor: Colors.red),
               ),
               // Padding(
               //   padding: const EdgeInsets.fromLTRB(
@@ -1070,28 +1079,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     return batteryLevelString;
   }
 
-  Widget getBatteryLevelWidget() {
-    var format = NumberFormat("###", "en_US");
-
-    String batteryLevelString;
-    if (batteryLevel != null) {
-      batteryLevelString = "$batterySymbol ${format.format(batteryLevel)}%";
-    } else {
-      batteryLevelString = "      ";
-    }
-
-    Color textColor = Colors.black54;
-
-    return Padding(
-        padding: const EdgeInsets.only(right: 25.0, top: 16),
-        child: Text(
-          batteryLevelString,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-              fontSize: 18, color: textColor, fontWeight: FontWeight.normal),
-        ));
-  }
-
   Future<void> _showCalibrationDialog() async {
     return showDialog<void>(
       context: context,
@@ -1311,17 +1298,23 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
       setState(() {
         if (value['xAngle'] != null) {
           _xAngle = value['xAngle']!;
+          // xAngleReadings.add(
+          //     AngleDataPoint(DateTime.now().millisecondsSinceEpoch, _xAngle));
         }
         if (value['yAngle'] != null) {
           _yAngle = value['yAngle']!;
+          // yAngleReadings.add(
+          //     AngleDataPoint(DateTime.now().millisecondsSinceEpoch, _yAngle));
         }
         if (value['zAngle'] != null) {
           _zAngle = value['zAngle']!;
+          // zAngleReadings.add(
+          //     AngleDataPoint(DateTime.now().millisecondsSinceEpoch, _zAngle));
         }
       });
     });
 
-    BluetoothBloc.instance.connectionStateStream.listen((value) {
+    BluetoothBloc.instance.connectionStateStream.listen((value) async {
       if (value['connected'] != null) {
         if (value['connected'] == true) {
           connectButtonState = CONNECT_BUTTON_STATE.CONNECTED_TO_DEVICE;
@@ -1329,6 +1322,15 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           loopAudio();
         } else {
           connectButtonState = CONNECT_BUTTON_STATE.DISCONNECTED_FROM_DEVICE;
+
+          await FileStorage.writeAngleDataPoints(
+              xAngleReadings, "xAngleReadings");
+          await FileStorage.writeAngleDataPoints(
+              yAngleReadings, "yAngleReadings");
+          await FileStorage.writeAngleDataPoints(
+              zAngleReadings, "zAngleReadings");
+          await FileStorage.writeTemperatureDataPoints(
+              temperatureReadings, "temperatureReadings");
 
           deviceConnected = false;
 
@@ -1345,6 +1347,18 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     BluetoothBloc.instance.batteryLevelStream.listen((value) {
       if (value['batteryLevel'] != null) {
         batteryLevel = value['batteryLevel'];
+      }
+
+      setState(() {});
+    });
+
+    BluetoothBloc.instance.temperatureStream.listen((value) {
+      if (value['temperature'] != null) {
+        temperature = value['temperature'];
+        // temperatureReadings.add(TemperatureDataPoint(
+        //     DateTime.now().millisecondsSinceEpoch, temperature!));
+
+        print("Temperature $temperature");
       }
 
       setState(() {});

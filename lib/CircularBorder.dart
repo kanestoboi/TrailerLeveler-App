@@ -9,6 +9,8 @@ class CircularBorder extends StatelessWidget {
   final double lineLength;
   final Widget? centerWidget;
   final double centerWidgetSize;
+  final double newLineAngle; // Angle for the new line in degrees
+  final Color newLineColor; // Color of the new line
 
   const CircularBorder({
     Key? key,
@@ -19,6 +21,8 @@ class CircularBorder extends StatelessWidget {
     this.lineLength = 8.0,
     this.centerWidget,
     required this.centerWidgetSize,
+    required this.newLineAngle,
+    required this.newLineColor,
   }) : super(key: key);
 
   @override
@@ -30,8 +34,9 @@ class CircularBorder extends StatelessWidget {
           Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                  maxWidth: centerWidgetSize,
-                  maxHeight: centerWidgetSize), // Set maximum width and height
+                maxWidth: centerWidgetSize,
+                maxHeight: centerWidgetSize,
+              ),
               child: centerWidget,
             ),
           ),
@@ -44,6 +49,8 @@ class CircularBorder extends StatelessWidget {
               numberOfLines: numberOfLines,
               lineLength: lineLength,
               centerWidgetSize: 0,
+              newLineAngle: newLineAngle,
+              newLineColor: newLineColor,
             ),
           ),
         )
@@ -58,6 +65,8 @@ class _CircularBorderPainter extends CustomPainter {
   final int numberOfLines;
   final double lineLength;
   final double centerWidgetSize;
+  final double newLineAngle;
+  final Color newLineColor;
 
   _CircularBorderPainter({
     required this.color,
@@ -65,6 +74,8 @@ class _CircularBorderPainter extends CustomPainter {
     required this.numberOfLines,
     required this.lineLength,
     required this.centerWidgetSize,
+    required this.newLineAngle,
+    required this.newLineColor,
   });
 
   @override
@@ -73,14 +84,17 @@ class _CircularBorderPainter extends CustomPainter {
       ..color = color
       ..strokeWidth = lineWidth;
 
+    final Paint newLinePaint = Paint()
+      ..color = newLineColor // Color for the new line
+      ..strokeWidth = lineWidth;
+
     final double radius = min(size.width / 2, size.height / 2);
     final double angleStep = 2 * pi / numberOfLines;
 
     final double adjustedRadius = radius - centerWidgetSize / 2;
 
     for (int i = 0; i < numberOfLines; i++) {
-      final double angle =
-          i * angleStep + pi / 2; // Offset the starting angle by pi / 2
+      final double angle = i * angleStep + pi / 2;
 
       final Offset startPoint = Offset(
         (size.width / 2) + (adjustedRadius * cos(angle)),
@@ -92,7 +106,12 @@ class _CircularBorderPainter extends CustomPainter {
         (size.height / 2) + ((adjustedRadius - lineLength) * sin(angle)),
       );
 
-      canvas.drawLine(startPoint, endPoint, paint);
+      if ((angle * 180 / pi) + 90 == newLineAngle) {
+        canvas.drawLine(
+            startPoint, endPoint, newLinePaint); // Draw the new line
+      } else {
+        canvas.drawLine(startPoint, endPoint, paint);
+      }
     }
   }
 
