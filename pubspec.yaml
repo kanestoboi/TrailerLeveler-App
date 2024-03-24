@@ -91,6 +91,11 @@ flutter:
   - assets/ruler-solid.svg
   - assets/arrows-spin-solid.svg
   - assets/sliders-solid.svg
+
+  - assets/battery-full.svg
+  - assets/battery-3full.svg
+  - assets/battery-charging.svg
+  - assets/battery-disable.svg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
 
