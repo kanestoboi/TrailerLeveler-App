@@ -186,10 +186,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_blue_plus
-      sha256: "042da5457a9e4eeceb4177f8baa0ccaa1a3a24ab311f84c417b167bfcc58563d"
+      sha256: af326029061bc2aac4fff3e50d6cbf1a1cda037e2373ac959a838b4b0aaac960
       url: "https://pub.dev"
     source: hosted
-    version: "1.14.9"
+    version: "1.31.17"
   flutter_launcher_icons:
     dependency: "direct dev"
     description:
