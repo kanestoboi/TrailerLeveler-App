@@ -75,6 +75,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
   bool isSoundMuted = true;
 
+  bool recordData = false;
+
   late Image camperRear;
   late Image camperSide;
 
@@ -528,7 +530,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                               flex: 2,
                               child: Text(
                                 BluetoothBloc.instance.getDeviceName(),
-                                style: TextStyle(
+                                style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontFamily: 'Inter',
                                     color: Color(0xFF2F2F2F),
@@ -538,16 +540,18 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                           Expanded(
                               flex: 2,
                               child: Container(
-                                padding: EdgeInsets.all(0),
+                                padding: const EdgeInsets.all(0),
                                 width: 80,
                                 height: 22,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(20.0),
-                                  color: Color.fromARGB(255, 255, 255, 255)
-                                      .withOpacity(0.07),
+                                  color:
+                                      const Color.fromARGB(255, 255, 255, 255)
+                                          .withOpacity(0.07),
                                   border: Border.all(
-                                    color: Color.fromARGB(255, 255, 255, 255)
-                                        .withOpacity(0.07),
+                                    color:
+                                        const Color.fromARGB(255, 255, 255, 255)
+                                            .withOpacity(0.07),
                                     width: 0.5,
                                   ),
                                 ),
@@ -558,7 +562,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                                         width: 25,
                                         height: 25,
                                         child: ColorFiltered(
-                                          colorFilter: ColorFilter.mode(
+                                          colorFilter: const ColorFilter.mode(
                                             Colors
                                                 .black54, // Replace with the color you want
                                             BlendMode.srcIn,
@@ -591,7 +595,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                                   ? "Connected"
                                   : "Disconnected",
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 12,
                                 color: Color(0xFF2F2F2F),
@@ -1254,16 +1258,37 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     await BluetoothBloc.instance.setOrientation(selectedOrientation!);
   }
 
+  void recordDataCallback(bool ischecked) async {
+    if (ischecked) {
+      xAngleReadings = [];
+      yAngleReadings = [];
+      zAngleReadings = [];
+      temperatureReadings = [];
+      recordData = true;
+    }
+    if (!ischecked) {
+      await FileStorage.writeAngleDataPoints(xAngleReadings, "xAngleReadings");
+      await FileStorage.writeAngleDataPoints(yAngleReadings, "yAngleReadings");
+      await FileStorage.writeAngleDataPoints(zAngleReadings, "zAngleReadings");
+      await FileStorage.writeTemperatureDataPoints(
+          temperatureReadings, "temperatureReadings");
+    }
+    print(ischecked);
+    print("Record Data toggled");
+  }
+
   Future<void> _showSettingsDialog() async {
     return showDialog<void>(
       context: context,
       barrierDismissible: false, // user must tap button!
       builder: (BuildContext context) {
         return StatefulBuilder(builder: (context, setState) {
-          return const FractionallySizedBox(
+          return FractionallySizedBox(
             widthFactor: 0.8,
-            heightFactor: 0.4,
-            child: SettingsPage(),
+            heightFactor: 0.6,
+            child: SettingsPage(
+                recordDataCallback: recordDataCallback,
+                isRecordingSwitchValue: recordData),
           );
         });
       },
@@ -1291,18 +1316,24 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
       setState(() {
         if (value['xAngle'] != null) {
           _xAngle = value['xAngle']!;
-          // xAngleReadings.add(
-          //     AngleDataPoint(DateTime.now().millisecondsSinceEpoch, _xAngle));
+          if (recordData) {
+            xAngleReadings.add(
+                AngleDataPoint(DateTime.now().millisecondsSinceEpoch, _xAngle));
+          }
         }
         if (value['yAngle'] != null) {
           _yAngle = value['yAngle']!;
-          // yAngleReadings.add(
-          //     AngleDataPoint(DateTime.now().millisecondsSinceEpoch, _yAngle));
+          if (recordData) {
+            yAngleReadings.add(
+                AngleDataPoint(DateTime.now().millisecondsSinceEpoch, _yAngle));
+          }
         }
         if (value['zAngle'] != null) {
           _zAngle = value['zAngle']!;
-          // zAngleReadings.add(
-          //     AngleDataPoint(DateTime.now().millisecondsSinceEpoch, _zAngle));
+          if (recordData) {
+            zAngleReadings.add(
+                AngleDataPoint(DateTime.now().millisecondsSinceEpoch, _zAngle));
+          }
         }
       });
     });
@@ -1315,15 +1346,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           loopAudio();
         } else {
           connectButtonState = CONNECT_BUTTON_STATE.DISCONNECTED_FROM_DEVICE;
-
-          await FileStorage.writeAngleDataPoints(
-              xAngleReadings, "xAngleReadings");
-          await FileStorage.writeAngleDataPoints(
-              yAngleReadings, "yAngleReadings");
-          await FileStorage.writeAngleDataPoints(
-              zAngleReadings, "zAngleReadings");
-          await FileStorage.writeTemperatureDataPoints(
-              temperatureReadings, "temperatureReadings");
 
           deviceConnected = false;
 
@@ -1348,8 +1370,10 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     BluetoothBloc.instance.temperatureStream.listen((value) {
       if (value['temperature'] != null) {
         temperature = value['temperature'];
-        // temperatureReadings.add(TemperatureDataPoint(
-        //     DateTime.now().millisecondsSinceEpoch, temperature!));
+        if (recordData) {
+          temperatureReadings.add(TemperatureDataPoint(
+              DateTime.now().millisecondsSinceEpoch, temperature!));
+        }
 
         print("Temperature $temperature");
       }
