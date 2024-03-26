@@ -530,7 +530,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                               flex: 2,
                               child: Text(
                                 BluetoothBloc.instance.getDeviceName(),
-                                style: TextStyle(
+                                style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontFamily: 'Inter',
                                     color: Color(0xFF2F2F2F),
@@ -540,16 +540,18 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                           Expanded(
                               flex: 2,
                               child: Container(
-                                padding: EdgeInsets.all(0),
+                                padding: const EdgeInsets.all(0),
                                 width: 80,
                                 height: 22,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(20.0),
-                                  color: Color.fromARGB(255, 255, 255, 255)
-                                      .withOpacity(0.07),
+                                  color:
+                                      const Color.fromARGB(255, 255, 255, 255)
+                                          .withOpacity(0.07),
                                   border: Border.all(
-                                    color: Color.fromARGB(255, 255, 255, 255)
-                                        .withOpacity(0.07),
+                                    color:
+                                        const Color.fromARGB(255, 255, 255, 255)
+                                            .withOpacity(0.07),
                                     width: 0.5,
                                   ),
                                 ),
@@ -560,7 +562,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                                         width: 25,
                                         height: 25,
                                         child: ColorFiltered(
-                                          colorFilter: ColorFilter.mode(
+                                          colorFilter: const ColorFilter.mode(
                                             Colors
                                                 .black54, // Replace with the color you want
                                             BlendMode.srcIn,
@@ -593,7 +595,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                                   ? "Connected"
                                   : "Disconnected",
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 12,
                                 color: Color(0xFF2F2F2F),

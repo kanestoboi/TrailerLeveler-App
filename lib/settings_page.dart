@@ -47,18 +47,38 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   Row(
                     children: [
-                      Text("Record Data:"),
-                      Switch(
-                        // This bool value toggles the switch.
-                        value: widget.isRecordingSwitchValue,
-                        activeColor: Colors.red,
-                        onChanged: (bool value) {
-                          // This is called when the user toggles the switch.
-                          widget.recordDataCallback.call(value);
-                          setState(() {
-                            widget.isRecordingSwitchValue = value;
-                          });
-                        },
+                      const Expanded(
+                        flex: 2,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.0), // Adjust padding as needed
+                          child: Text(
+                            "Record Data:",
+                            style: TextStyle(
+                                fontSize: 20, // Adjust font size as needed
+                                fontWeight: FontWeight
+                                    .normal, // Adjust font weight as needed
+                                color: Colors.black,
+                                fontFamily:
+                                    'Noto Sans' // Adjust text color as needed
+                                ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Switch(
+                          // This bool value toggles the switch.
+                          value: widget.isRecordingSwitchValue,
+                          activeColor: Colors.red,
+                          onChanged: (bool value) {
+                            // This is called when the user toggles the switch.
+                            widget.recordDataCallback.call(value);
+                            setState(() {
+                              widget.isRecordingSwitchValue = value;
+                            });
+                          },
+                        ),
                       )
                     ],
                   )
