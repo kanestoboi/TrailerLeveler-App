@@ -578,9 +578,8 @@ class BluetoothBloc {
 
   void setBluetoothDeviceMACAddress(String MACAddress) {
     trailerLevelerDevice = BluetoothDevice(
-        remoteId: DeviceIdentifier(MACAddress),
-        localName: "",
-        type: BluetoothDeviceType.le);
+      remoteId: DeviceIdentifier(MACAddress),
+    );
   }
 
   String? getBluetoothDeviceMACAddress() {
