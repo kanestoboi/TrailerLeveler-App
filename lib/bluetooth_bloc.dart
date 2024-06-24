@@ -115,10 +115,11 @@ class BluetoothBloc {
   int currentOrientation = 1;
 
   final _anglesStreamController = StreamController<Map<String, double>>();
-  final _batteryLevelStreamController = StreamController<Map<String, int>>();
-  final _temperatureStreamController = StreamController<Map<String, double>>();
-  final _connectionStateStreamController =
-      StreamController<Map<String, bool>>();
+  final _xAngleStreamController = StreamController<double>.broadcast();
+  final _yAngleStreamController = StreamController<double>.broadcast();
+  final _batteryLevelStreamController = StreamController<int>.broadcast();
+  final _temperatureStreamController = StreamController<double>.broadcast();
+  final _connectionStateStreamController = StreamController<bool>.broadcast();
   final _dfuProgressStreamController = StreamController<int>.broadcast();
   final _dfuStateStreamController =
       StreamController<DFU_UPLOAD_STATE>.broadcast();
@@ -129,11 +130,11 @@ class BluetoothBloc {
 
   Stream<Map<String, double>> get anglesStream =>
       _anglesStreamController.stream;
-  Stream<Map<String, int>> get batteryLevelStream =>
-      _batteryLevelStreamController.stream;
-  Stream<Map<String, double>> get temperatureStream =>
-      _temperatureStreamController.stream;
-  Stream<Map<String, bool>> get connectionStateStream =>
+  Stream<double> get xAngleStream => _xAngleStreamController.stream;
+  Stream<double> get yAngleStream => _yAngleStreamController.stream;
+  Stream<int> get batteryLevelStream => _batteryLevelStreamController.stream;
+  Stream<double> get temperatureStream => _temperatureStreamController.stream;
+  Stream<bool> get connectionStateStream =>
       _connectionStateStreamController.stream;
   Stream<int> get dfuProgressStream => _dfuProgressStreamController.stream;
   Stream<DFU_UPLOAD_STATE> get dfuStateStream =>
@@ -210,7 +211,7 @@ class BluetoothBloc {
           textColor: Colors.white,
           fontSize: 16.0);
 
-      _connectionStateStreamController.sink.add({"connected": false});
+      _connectionStateStreamController.sink.add(false);
     });
 
     if (!connected) {
@@ -220,7 +221,7 @@ class BluetoothBloc {
 
     trailerLevelerDevice = device;
 
-    _connectionStateStreamController.sink.add({"connected": true});
+    _connectionStateStreamController.sink.add(true);
 
     await findDeviceServices(device);
 
@@ -383,6 +384,8 @@ class BluetoothBloc {
       }
 
       _anglesStreamController.sink.add(obj);
+      _xAngleStreamController.sink.add(obj['xAngle']!);
+      _yAngleStreamController.sink.add(obj['yAngle']!);
     }, cancelOnError: true);
   }
 
@@ -397,6 +400,8 @@ class BluetoothBloc {
         double accZ = byteData.getFloat32(8, Endian.little);
 
         var obj = {"xAngle": accX, "yAngle": accY, "zAngle": accZ};
+        _xAngleStreamController.sink.add(obj['xAngle']!);
+        _yAngleStreamController.sink.add(obj['yAngle']!);
 
         _anglesStreamController.sink.add(obj);
       }
@@ -521,7 +526,7 @@ class BluetoothBloc {
     return device.connectionState.listen((connectionState) async {
       switch (connectionState) {
         case BluetoothConnectionState.disconnected:
-          _connectionStateStreamController.sink.add({"connected": false});
+          _connectionStateStreamController.sink.add(false);
 
           // Cancel the subscription to stop listening
           connectionStateStreamSubscription?.cancel();
@@ -537,10 +542,7 @@ class BluetoothBloc {
 
   StreamSubscription<List<int>>? getBatteryLevelStreamSubscription() {
     return batteryLevelCharacteristic?.lastValueStream.listen((value) async {
-      var obj = {
-        "batteryLevel": value[0],
-      };
-      _batteryLevelStreamController.sink.add(obj);
+      _batteryLevelStreamController.sink.add(value[0]);
     });
   }
 
@@ -550,8 +552,7 @@ class BluetoothBloc {
         ByteData byteData = ByteData.sublistView(Uint8List.fromList(value));
         double temperature = byteData.getInt16(0, Endian.little) / 100.0;
 
-        var obj = {"temperature": temperature};
-        _temperatureStreamController.sink.add(obj);
+        _temperatureStreamController.sink.add(temperature);
       }
     });
   }

@@ -12,6 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:trailer_leveler_app/device_status.dart';
+import 'package:trailer_leveler_app/vehicle_angles.dart';
 
 import 'package:trailer_leveler_app/dfu_update_page.dart';
 import 'package:trailer_leveler_app/device_orientation_page.dart';
@@ -53,9 +55,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   List<AngleDataPoint> yAngleReadings = [];
   List<AngleDataPoint> zAngleReadings = [];
   List<TemperatureDataPoint> temperatureReadings = [];
-
-  double _savedHitchAngle =
-      0; // The angle the device it at when hitch height is saved
 
   double _caravanWidth = 0.0001;
   double _caravanLength = 0.0001;
@@ -458,215 +457,31 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   }
 
   Widget getLevelIndicatorWidget() {
-    double screenWidth = MediaQuery.of(context).size.width;
-
     return Stack(
       children: [
         Center(
           child: Column(
             children: [
-              Container(
-                width: screenWidth * 0.95, // Width of the box
-                height: 110, // Height of the box
-                padding:
-                    EdgeInsets.all(9.0), // Adding 16.0 padding to all sides
-
-                decoration: BoxDecoration(
-                  borderRadius:
-                      BorderRadius.circular(20.0), // Adding rounded corners
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1), // Shadow color
-                      spreadRadius: 2, // Spread radius
-                      blurRadius: 6, // Blur radius
-                      offset: const Offset(0, 3), // Shadow offset
-                    ),
-                  ],
-                  color: Colors.white,
-
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 1.0,
-                  ),
+              DeviceStatus(
+                camperSide: const AssetImage(
+                  "images/caravan_side.png",
                 ),
-                child: Row(children: [
-                  Expanded(
-                      flex: 3,
-                      child: Container(
-                          child: Column(
-                        crossAxisAlignment: CrossAxisAlignment
-                            .start, // Aligns children to the start (left)
-                        children: [
-                          Expanded(
-                              flex: 1,
-                              child: RichText(
-                                text: TextSpan(
-                                  style: TextStyle(
-                                    fontWeight:
-                                        FontWeight.bold, // Making the text bold
-                                    fontFamily: 'Inter',
-                                    color: const Color(0xFF737373)
-                                        .withOpacity(0.4),
-                                    fontSize: 12.0,
-                                    height: 14.52 / 12,
-                                  ),
-                                  children: [
-                                    const TextSpan(
-                                      text: "Product ID: ",
-                                    ),
-                                    TextSpan(
-                                      text: BluetoothBloc.instance
-                                          .getBluetoothDeviceMACAddress(),
-                                      style: TextStyle(
-                                        color: const Color(0xFF2196F3).withOpacity(
-                                            0.4), // Changing the color of the number part
-                                        // You can add more style properties here if needed
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )),
-                          Expanded(
-                              flex: 2,
-                              child: Text(
-                                BluetoothBloc.instance.getDeviceName(),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontFamily: 'Inter',
-                                    color: Color(0xFF2F2F2F),
-                                    fontSize: 16.0,
-                                    height: 19.36 / 16.0),
-                              )),
-                          Expanded(
-                              flex: 2,
-                              child: Container(
-                                padding: const EdgeInsets.all(0),
-                                width: 80,
-                                height: 22,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(20.0),
-                                  color:
-                                      const Color.fromARGB(255, 255, 255, 255)
-                                          .withOpacity(0.07),
-                                  border: Border.all(
-                                    color:
-                                        const Color.fromARGB(255, 255, 255, 255)
-                                            .withOpacity(0.07),
-                                    width: 0.5,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Row(
-                                    children: [
-                                      SizedBox(
-                                        width: 25,
-                                        height: 25,
-                                        child: ColorFiltered(
-                                          colorFilter: const ColorFilter.mode(
-                                            Colors
-                                                .black54, // Replace with the color you want
-                                            BlendMode.srcIn,
-                                          ),
-                                          child: getBatteryIcon(),
-                                        ),
-                                      ), // Icon you want to add
-                                      // Add some spacing between the icon and text
-                                      Align(
-                                          alignment: Alignment.centerRight,
-                                          child: Text(
-                                            getBatteryLevelString(),
-                                            maxLines: 1,
-                                          )),
-                                    ],
-                                  ),
-                                ),
-                              ))
-                        ],
-                      ))),
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      children: [
-                        Expanded(flex: 3, child: camperSide),
-                        Expanded(
-                            flex: 1,
-                            child: Text(
-                              BluetoothBloc.instance.isConnected()
-                                  ? "Connected"
-                                  : "Disconnected",
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 12,
-                                color: Color(0xFF2F2F2F),
-                              ),
-                            ))
-                      ],
-                    ),
-                  )
-                ]),
+                connectionStateStream:
+                    BluetoothBloc.instance.connectionStateStream,
+                batteryChargePercentageStream:
+                    BluetoothBloc.instance.batteryLevelStream,
+                productID:
+                    BluetoothBloc.instance.getBluetoothDeviceMACAddress() ?? "",
               ),
-              Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                      16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
-                  child: Center(
-                    child: Transform.rotate(
-                      angle: pi / 180.0 * (_xAngle),
-                      child: camperRear,
-                    ),
-                  )),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: <Widget>[
-                  Container(
-                    alignment: Alignment.center,
-                    child: getLeftHeightStringWidget(),
-                  ),
-                  Container(
-                    alignment: Alignment.center,
-                    child: getXAngleStringWidget(),
-                  ),
-                  Container(
-                    alignment: Alignment.center,
-                    child: getRightHeightStringWidget(),
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
-                child: Center(
-                  child: Transform.rotate(
-                    angle: getJockeyImageAngle(),
-                    child: camperSide,
-                  ),
+              VehicleAngle(
+                camperSide: const AssetImage(
+                  "images/caravan_side.png",
                 ),
-              ),
-              // Padding(
-              //   padding: const EdgeInsets.fromLTRB(
-              //       16.0, 32.0, 16.0, 10.0), // left, top, right, bottom
-              //   child: Center(
-              //     child: Transform.rotate(
-              //       angle: getJockeyImageAngle(),
-              //       child: camperSide,
-              //     ),
-              //   ),
-              // ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: <Widget>[
-                  Container(
-                    alignment: Alignment.center,
-                    child: getJockyHeightWidget(),
-                  ),
-                  Container(
-                    alignment: Alignment.center,
-                    child: getYAngleStringWidget(),
-                  ),
-                  Container(
-                    child: SizedBox(),
-                  )
-                ],
+                camperRear: AssetImage("images/caravan_rear.png"),
+                caravanWidth: _caravanWidth,
+                caravanLength: _caravanLength,
+                xAngleStream: BluetoothBloc.instance.xAngleStream,
+                yAngleStream: BluetoothBloc.instance.yAngleStream,
               ),
             ],
           ),
@@ -700,26 +515,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         )
       ],
     );
-  }
-
-  Widget getBatteryIcon() {
-    if (batteryLevel != null) {
-      return SvgPicture.asset(
-        'assets/battery-full.svg', // Replace with your SVG image path
-        width: 20, // Adjust the width as needed
-        height: 20, // Adjust the height as needed
-      );
-    } else {
-      return SvgPicture.asset(
-        'assets/battery-disable.svg', // Replace with your SVG image path
-        width: 20, // Adjust the width as needed
-        height: 20, // Adjust the height as needed
-      );
-    }
-  }
-
-  double getJockeyImageAngle() {
-    return pi / 180 * _yAngle * -1;
   }
 
   List<bool> isSelected = [
@@ -807,7 +602,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
     switch (currentLevelingMode) {
       case LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT:
-        _savedHitchAngle = await BluetoothBloc.instance.getSavedHitchAngle();
+        //_savedHitchAngle = await BluetoothBloc.instance.getSavedHitchAngle();
         break;
       default:
         {}
@@ -817,7 +612,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   Future<void> saveHitchAngle() async {
     // sending 2 will set the device to save its hitch angle
     await BluetoothBloc.instance.setCalibration(2);
-    _savedHitchAngle = await BluetoothBloc.instance.getSavedHitchAngle();
+    //_savedHitchAngle = await BluetoothBloc.instance.getSavedHitchAngle();
   }
 
   Widget getConnectToDeviceWidget() {
@@ -842,238 +637,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           );
         }
     }
-  }
-
-  Widget getXAngleStringWidget() {
-    var format = NumberFormat("##0.00", "en_US");
-
-    String angleString;
-    Color textColor = Colors.black54;
-
-    double adjustedAngle = (_xAngle);
-    double roundedAngle = (adjustedAngle / 0.05).round() * 0.05;
-
-    if ((currentLevelingMode == LevelingMode.LEVEL_TO_LEVEL)) {
-      angleString = '${format.format(roundedAngle)}°';
-    } else {
-      angleString = '0.00°';
-      textColor = Colors.black54;
-    }
-
-    return Text(
-      angleString,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        fontSize: 20,
-        color: textColor,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-  }
-
-  Widget getYAngleStringWidget() {
-    var format = NumberFormat("##0.00", "en_US");
-
-    String angleString;
-    Color textColor = Colors.black54;
-
-    double roundedAngle = (_yAngle / 0.05).round() * 0.05;
-
-    angleString = '${format.format(roundedAngle)}°';
-
-    return Text(
-      angleString,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        fontSize: 20,
-        color: textColor,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-  }
-
-  Widget getLeftHeightStringWidget() {
-    double height;
-
-    if (horizontalReference == 'right') {
-      height = double.parse(
-          (tan((_xAngle) * pi / 180.0) * _caravanWidth).toStringAsFixed(3));
-    } else {
-      height = 0.0;
-    }
-
-    var format = NumberFormat("##0.000", "en_US");
-
-    String heightString;
-    Color textColor = Colors.red;
-
-    if ((currentLevelingMode == LevelingMode.LEVEL_TO_LEVEL)) {
-      if (height > 0) {
-        heightString = '$downArrow ${format.format(height.abs())}';
-      } else if (height < 0) {
-        heightString = '$upArrow ${format.format(height.abs())}';
-      } else {
-        heightString = '0.000';
-        textColor = Color(0xFF4CB050);
-      }
-    } else {
-      heightString = '0.000';
-      textColor = Colors.black54;
-    }
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          horizontalReference = 'right';
-        });
-      },
-      child: Container(
-        width: 150,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20.0),
-          color: Colors.white,
-          border: Border.all(
-            color: textColor,
-            width: 1.0,
-          ),
-        ),
-        child: Text(
-          heightString,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-              fontSize: 36,
-              color: textColor,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Inter'),
-        ),
-      ),
-    );
-  }
-
-  Widget getRightHeightStringWidget() {
-    double height;
-
-    if (horizontalReference == 'left') {
-      height = double.parse(
-          (tan((_xAngle) * pi / 180.0) * _caravanWidth).toStringAsFixed(3));
-    } else {
-      height = 0.0;
-    }
-
-    var format = NumberFormat("##0.000", "en_US");
-
-    String heightString;
-    Color textColor = Colors.red;
-
-    if ((currentLevelingMode == LevelingMode.LEVEL_TO_LEVEL)) {
-      if (height < 0) {
-        heightString = '$downArrow ${format.format(height.abs())}';
-      } else if (height > 0) {
-        heightString = '$upArrow ${format.format(height.abs())}';
-      } else {
-        heightString = '0.000';
-        textColor = Colors.green;
-      }
-    } else {
-      heightString = '0.000';
-      textColor = Colors.black54;
-    }
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          horizontalReference = 'left';
-        });
-      },
-      child: Container(
-        width: 150,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20.0),
-          color: Colors.white,
-          border: Border.all(
-            color: textColor,
-            width: 1.0,
-          ),
-        ),
-        child: Text(
-          heightString,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-              fontSize: 36,
-              color: textColor,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Inter'),
-        ),
-      ),
-    );
-  }
-
-  Widget getJockyHeightWidget() {
-    double height;
-    String heightString;
-    Color textColor = Colors.red;
-    var format = NumberFormat("##0.000", "en_US");
-
-    if (currentLevelingMode == LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT) {
-      height = double.parse(
-          (tan((_yAngle - _savedHitchAngle) * pi / 180.0) * _caravanLength * -1)
-              .toStringAsFixed(3));
-
-      if (height > 0) {
-        heightString = '$downArrow ${format.format(height.abs())}';
-      } else if (height < 0) {
-        heightString = '$upArrow ${format.format(height.abs())}';
-      } else {
-        heightString = '0.000';
-        textColor = Colors.green;
-      }
-    } else {
-      height = double.parse(
-          (tan((_yAngle) * pi / 180.0) * _caravanLength).toStringAsFixed(3));
-
-      if (height > 0) {
-        heightString = '$upArrow ${format.format(height.abs())}';
-      } else if (height < 0) {
-        heightString = '$downArrow ${format.format(height.abs())}';
-      } else {
-        heightString = '0.000';
-        textColor = Colors.green;
-      }
-    }
-
-    return Container(
-      width: 150,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20.0),
-        color: Colors.white,
-        border: Border.all(
-          color: textColor,
-          width: 1.0,
-        ),
-      ),
-      child: Text(
-        heightString,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-            fontSize: 36,
-            color: textColor,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Inter'),
-      ),
-    );
-  }
-
-  String getBatteryLevelString() {
-    var format = NumberFormat("###", "en_US");
-
-    String batteryLevelString;
-    if (batteryLevel != null) {
-      batteryLevelString = "${format.format(batteryLevel)}%";
-    } else {
-      batteryLevelString = "";
-    }
-
-    return batteryLevelString;
   }
 
   Future<void> _showCalibrationDialog() async {
@@ -1312,71 +875,34 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   }
 
   void listenToBluetoothBlocStreams() {
-    BluetoothBloc.instance.anglesStream.listen((value) {
-      setState(() {
-        if (value['xAngle'] != null) {
-          _xAngle = value['xAngle']!;
-          if (recordData) {
-            xAngleReadings.add(
-                AngleDataPoint(DateTime.now().millisecondsSinceEpoch, _xAngle));
-          }
+    BluetoothBloc.instance.connectionStateStream
+        .listen((connectionState) async {
+      if (connectionState == true) {
+        connectButtonState = CONNECT_BUTTON_STATE.CONNECTED_TO_DEVICE;
+        deviceConnected = true;
+        loopAudio();
+      } else {
+        connectButtonState = CONNECT_BUTTON_STATE.DISCONNECTED_FROM_DEVICE;
+
+        deviceConnected = false;
+
+        if (BluetoothBloc.instance.currentDFUUploadState !=
+            DFU_UPLOAD_STATE.DISCONNECTING) {
+          _showDisconnectedDialog();
         }
-        if (value['yAngle'] != null) {
-          _yAngle = value['yAngle']!;
-          if (recordData) {
-            yAngleReadings.add(
-                AngleDataPoint(DateTime.now().millisecondsSinceEpoch, _yAngle));
-          }
-        }
-        if (value['zAngle'] != null) {
-          _zAngle = value['zAngle']!;
-          if (recordData) {
-            zAngleReadings.add(
-                AngleDataPoint(DateTime.now().millisecondsSinceEpoch, _zAngle));
-          }
-        }
-      });
-    });
-
-    BluetoothBloc.instance.connectionStateStream.listen((value) async {
-      if (value['connected'] != null) {
-        if (value['connected'] == true) {
-          connectButtonState = CONNECT_BUTTON_STATE.CONNECTED_TO_DEVICE;
-          deviceConnected = true;
-          loopAudio();
-        } else {
-          connectButtonState = CONNECT_BUTTON_STATE.DISCONNECTED_FROM_DEVICE;
-
-          deviceConnected = false;
-
-          if (BluetoothBloc.instance.currentDFUUploadState !=
-              DFU_UPLOAD_STATE.DISCONNECTING) {
-            _showDisconnectedDialog();
-          }
-        }
-      }
-
-      setState(() {});
-    });
-
-    BluetoothBloc.instance.batteryLevelStream.listen((value) {
-      if (value['batteryLevel'] != null) {
-        batteryLevel = value['batteryLevel'];
       }
 
       setState(() {});
     });
 
     BluetoothBloc.instance.temperatureStream.listen((value) {
-      if (value['temperature'] != null) {
-        temperature = value['temperature'];
-        if (recordData) {
-          temperatureReadings.add(TemperatureDataPoint(
-              DateTime.now().millisecondsSinceEpoch, temperature!));
-        }
-
-        print("Temperature $temperature");
+      temperature = value;
+      if (recordData) {
+        temperatureReadings.add(TemperatureDataPoint(
+            DateTime.now().millisecondsSinceEpoch, temperature!));
       }
+
+      print("Temperature $temperature");
 
       setState(() {});
     });
