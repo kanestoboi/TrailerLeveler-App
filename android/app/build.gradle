@@ -54,8 +54,8 @@ android {
         applicationId "com.stoboi.trailer_leveler_app"
         minSdkVersion 21
         targetSdkVersion 33
-        versionCode 13
-        versionName '0.5.4'
+        versionCode 14
+        versionName '0.6.0'
     }
 
     signingConfigs {
