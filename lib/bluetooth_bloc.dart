@@ -39,6 +39,17 @@ const String ACCELEROMETER_CALIBRATION_CHARACTERISTIC_UUID =
     "76491405-7DD9-11ED-A1EB-0242AC120002";
 const String ACCELEROMETER_SAVED_HITCH_ANGLE_CHARACTERISTIC_UUID =
     "76491406-7DD9-11ED-A1EB-0242AC120002";
+const String ACCELEROMETER_VEHICLE_LENGTH_CHARACTERISTIC_UUID =
+    "76491408-7DD9-11ED-A1EB-0242AC120002";
+const String ACCELEROMETER_VEHICLE_WIDTH_CHARACTERISTIC_UUID =
+    "76491409-7DD9-11ED-A1EB-0242AC120002";
+const String ACCELEROMETER_LEVELING_MODE_CHARACTERISTIC_UUID =
+    "76491410-7DD9-11ED-A1EB-0242AC120002";
+const String ACCELEROMETER_LENGTH_AXIS_ADJUSTMENT_CHARACTERISTIC_UUID =
+    "76491411-7DD9-11ED-A1EB-0242AC120002";
+const String ACCELEROMETER_WIDTH_AXIS_ADJUSTMENT_CHARACTERISTIC_UUID =
+    "76491412-7DD9-11ED-A1EB-0242AC120002";
+
 // ignore: constant_identifier_names
 const String BATTERY_LEVEL_CHARACTERISTIC_UUID =
     "00002A19-0000-1000-8000-00805F9B34FB";
@@ -91,8 +102,13 @@ class BluetoothBloc {
   StreamSubscription<List<int>>?
       accelerometerDataCharacteristicStreamSubscription;
   StreamSubscription<List<int>>? anglesCharacteristicStreamSubscription;
+  StreamSubscription<List<int>>?
+      lengthAxisAdjustmentCharacteristicStreamSubscription;
+  StreamSubscription<List<int>>?
+      widthAxisAdjustmentCharacteristicStreamSubscription;
   StreamSubscription<List<int>>? batteryLevelCharacteristicStreamSubscription;
   StreamSubscription<List<int>>? temperatureCharacteristicStreamSubscription;
+  StreamSubscription<List<int>>? levelingModeCharacteristicStreamSubscription;
 
   BluetoothService? deviceInformationService;
   BluetoothService? accelerometerService;
@@ -105,6 +121,11 @@ class BluetoothBloc {
   BluetoothCharacteristic? orientationCharacteristic;
   BluetoothCharacteristic? calibrationCharacteristic;
   BluetoothCharacteristic? savedHitchAngleCharacteristic;
+  BluetoothCharacteristic? vehicleLengthCharacteristic;
+  BluetoothCharacteristic? vehicleWidthCharacteristic;
+  BluetoothCharacteristic? levelingModeCharacteristic;
+  BluetoothCharacteristic? lengthAxisAdjustmentCharacteristic;
+  BluetoothCharacteristic? widthAxisAdjustmentCharacteristic;
   BluetoothCharacteristic? batteryLevelCharacteristic;
   BluetoothCharacteristic? temperatureCharacteristic;
 
@@ -115,10 +136,17 @@ class BluetoothBloc {
   int currentOrientation = 1;
 
   final _anglesStreamController = StreamController<Map<String, double>>();
-  final _batteryLevelStreamController = StreamController<Map<String, int>>();
-  final _temperatureStreamController = StreamController<Map<String, double>>();
-  final _connectionStateStreamController =
-      StreamController<Map<String, bool>>();
+  final _xAngleStreamController = StreamController<double>.broadcast();
+  final _yAngleStreamController = StreamController<double>.broadcast();
+  final _levelingModeStreamController = StreamController<int>.broadcast();
+  final _lengthAxisAdjustmentStreamController =
+      StreamController<double>.broadcast();
+  final _widthAxisAdjustmentStreamController =
+      StreamController<double>.broadcast();
+  final _batteryLevelStreamController = StreamController<int>.broadcast();
+  final _temperatureStreamController = StreamController<double>.broadcast();
+  final _connectionStateStreamController = StreamController<String>.broadcast();
+  final _deviceNameStreamController = StreamController<String>.broadcast();
   final _dfuProgressStreamController = StreamController<int>.broadcast();
   final _dfuStateStreamController =
       StreamController<DFU_UPLOAD_STATE>.broadcast();
@@ -129,12 +157,18 @@ class BluetoothBloc {
 
   Stream<Map<String, double>> get anglesStream =>
       _anglesStreamController.stream;
-  Stream<Map<String, int>> get batteryLevelStream =>
-      _batteryLevelStreamController.stream;
-  Stream<Map<String, double>> get temperatureStream =>
-      _temperatureStreamController.stream;
-  Stream<Map<String, bool>> get connectionStateStream =>
+  Stream<double> get xAngleStream => _xAngleStreamController.stream;
+  Stream<double> get yAngleStream => _yAngleStreamController.stream;
+  Stream<int> get levelingModeStream => _levelingModeStreamController.stream;
+  Stream<double> get lengthAxisAdjustmentStream =>
+      _lengthAxisAdjustmentStreamController.stream;
+  Stream<double> get widthAxisAdjustmentStream =>
+      _widthAxisAdjustmentStreamController.stream;
+  Stream<int> get batteryLevelStream => _batteryLevelStreamController.stream;
+  Stream<double> get temperatureStream => _temperatureStreamController.stream;
+  Stream<String> get connectionStateStream =>
       _connectionStateStreamController.stream;
+  Stream<String> get deviceNameStream => _deviceNameStreamController.stream;
   Stream<int> get dfuProgressStream => _dfuProgressStreamController.stream;
   Stream<DFU_UPLOAD_STATE> get dfuStateStream =>
       _dfuStateStreamController.stream;
@@ -171,15 +205,102 @@ class BluetoothBloc {
     return calibration![0];
   }
 
+  Future<void> setVehicleLength(double length) async {
+    // Step 1: Allocate a ByteData object of 4 bytes (for a 32-bit float)
+    ByteData float32Data = ByteData(4);
+
+    // Step 2: Set the float value at the beginning of the byte buffer
+    float32Data.setFloat32(0, length, Endian.little);
+
+    // Step 3: Get the byte array directly from the ByteData object
+    List<int> lengthByteArray = float32Data.buffer.asUint8List();
+    await vehicleLengthCharacteristic?.write(lengthByteArray);
+  }
+
+  Future<double> getVehicleLength() async {
+    double length = 1.0;
+    List<int>? lengthByteData = await vehicleLengthCharacteristic?.read();
+
+    if (lengthByteData == null) {
+      return length;
+    }
+
+    ByteData byteData =
+        ByteData.sublistView(Uint8List.fromList(lengthByteData!));
+    if (lengthByteData.length == 4) {
+      length = byteData.getFloat32(0, Endian.little);
+    }
+
+    return length;
+  }
+
+  Future<void> setVehicleWidth(double width) async {
+    // Step 1: Allocate a ByteData object of 4 bytes (for a 32-bit float)
+    ByteData float32Data = ByteData(4);
+
+    // Step 2: Set the float value at the beginning of the byte buffer
+    float32Data.setFloat32(0, width, Endian.little);
+
+    // Step 3: Get the byte array directly from the ByteData object
+    List<int> widthByteArray = float32Data.buffer.asUint8List();
+    await vehicleWidthCharacteristic?.write(widthByteArray);
+  }
+
+  Future<double> getVehicleWidth() async {
+    double width = 1.0;
+    List<int>? widthByteData = await vehicleLengthCharacteristic?.read();
+
+    if (widthByteData == null) {
+      return width;
+    }
+
+    ByteData byteData =
+        ByteData.sublistView(Uint8List.fromList(widthByteData!));
+    if (widthByteData.length == 4) {
+      width = byteData.getFloat32(0, Endian.little);
+    }
+
+    return width;
+  }
+
+  Future<void> setLevelingMode(int mode) async {
+    // Step 1: Allocate a ByteData object of 4 bytes (for a 32-bit float)
+    ByteData uint8Data = ByteData(1);
+
+    // Step 2: Set the float value at the beginning of the byte buffer
+    uint8Data.setUint8(0, mode);
+
+    // Step 3: Get the byte array directly from the ByteData object
+    List<int> modeByteArray = uint8Data.buffer.asUint8List();
+    await levelingModeCharacteristic?.write(modeByteArray);
+  }
+
+  Future<int> getLevelingMode() async {
+    int mode = 0;
+    List<int>? modeByteData = await levelingModeCharacteristic?.read();
+
+    if (modeByteData == null) {
+      return mode;
+    }
+
+    ByteData byteData = ByteData.sublistView(Uint8List.fromList(modeByteData!));
+    if (modeByteData.length == 1) {
+      mode = byteData.getUint8(0);
+    }
+
+    return mode;
+  }
+
   String getDeviceName() {
-    if (trailerLevelerDevice?.localName != null) {
-      return trailerLevelerDevice!.localName.toUpperCase();
+    if (trailerLevelerDevice?.platformName != null) {
+      return trailerLevelerDevice!.platformName.toUpperCase();
     } else {
       return "UNKNOWN DEVICE";
     }
   }
 
   Future<void> connectToDevice(BluetoothDevice? device) async {
+    _connectionStateStreamController.sink.add("connecting");
     anglesCharacteristicStreamSubscription?.cancel();
 
     if (device == null && trailerLevelerDevice == null) {
@@ -193,10 +314,7 @@ class BluetoothBloc {
     }
 
     bool connected = true;
-    await device
-        .connect(autoConnect: false)
-        .timeout(const Duration(seconds: 5))
-        .onError((error, stackTrace) {
+    await device.connect(autoConnect: false).onError((error, stackTrace) {
       debugPrint(stackTrace.toString());
 
       debugPrint(error.toString());
@@ -210,7 +328,7 @@ class BluetoothBloc {
           textColor: Colors.white,
           fontSize: 16.0);
 
-      _connectionStateStreamController.sink.add({"connected": false});
+      _connectionStateStreamController.sink.add("disconnected");
     });
 
     if (!connected) {
@@ -220,7 +338,7 @@ class BluetoothBloc {
 
     trailerLevelerDevice = device;
 
-    _connectionStateStreamController.sink.add({"connected": true});
+    _connectionStateStreamController.sink.add("connected");
 
     await findDeviceServices(device);
 
@@ -249,8 +367,20 @@ class BluetoothBloc {
 
     temperatureCharacteristicStreamSubscription =
         getTemperatureStreamSubscription();
+    levelingModeCharacteristicStreamSubscription =
+        getLevelingModeStreamSubscription();
+
+    lengthAxisAdjustmentCharacteristicStreamSubscription =
+        getLengthAxisAdjustmentStreamSubscription();
+
+    widthAxisAdjustmentCharacteristicStreamSubscription =
+        getWidthAxisAdjustmentStreamSubscription();
+
+    await lengthAxisAdjustmentCharacteristic?.setNotifyValue(true);
+    await widthAxisAdjustmentCharacteristic?.setNotifyValue(true);
 
     await temperatureCharacteristic?.setNotifyValue(true);
+    await levelingModeCharacteristic?.setNotifyValue(true);
 
     await batteryLevelCharacteristic?.setNotifyValue(true);
     await batteryLevelCharacteristic?.read();
@@ -383,6 +513,8 @@ class BluetoothBloc {
       }
 
       _anglesStreamController.sink.add(obj);
+      _xAngleStreamController.sink.add(obj['xAngle']!);
+      _yAngleStreamController.sink.add(obj['yAngle']!);
     }, cancelOnError: true);
   }
 
@@ -397,6 +529,8 @@ class BluetoothBloc {
         double accZ = byteData.getFloat32(8, Endian.little);
 
         var obj = {"xAngle": accX, "yAngle": accY, "zAngle": accZ};
+        _xAngleStreamController.sink.add(obj['xAngle']!);
+        _yAngleStreamController.sink.add(obj['yAngle']!);
 
         _anglesStreamController.sink.add(obj);
       }
@@ -504,6 +638,31 @@ class BluetoothBloc {
             characteristic.uuid ==
             Guid(ACCELEROMETER_SAVED_HITCH_ANGLE_CHARACTERISTIC_UUID));
 
+    vehicleLengthCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_VEHICLE_LENGTH_CHARACTERISTIC_UUID));
+
+    vehicleWidthCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_VEHICLE_WIDTH_CHARACTERISTIC_UUID));
+
+    levelingModeCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_LEVELING_MODE_CHARACTERISTIC_UUID));
+
+    lengthAxisAdjustmentCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_LENGTH_AXIS_ADJUSTMENT_CHARACTERISTIC_UUID));
+
+    widthAxisAdjustmentCharacteristic = accelerometerService?.characteristics
+        .firstWhereOrNull((characteristic) =>
+            characteristic.uuid ==
+            Guid(ACCELEROMETER_WIDTH_AXIS_ADJUSTMENT_CHARACTERISTIC_UUID));
+
     batteryLevelCharacteristic = batteryLevelService?.characteristics
         .firstWhereOrNull((characteristic) =>
             characteristic.uuid == Guid(BATTERY_LEVEL_CHARACTERISTIC_UUID));
@@ -514,6 +673,8 @@ class BluetoothBloc {
 
     accelerometerDataCharacteristic =
         getAccelerometerDataCharacteristic(accelerometerService!);
+
+    allCharacteristicsLoaded();
   }
 
   StreamSubscription<BluetoothConnectionState>?
@@ -521,7 +682,7 @@ class BluetoothBloc {
     return device.connectionState.listen((connectionState) async {
       switch (connectionState) {
         case BluetoothConnectionState.disconnected:
-          _connectionStateStreamController.sink.add({"connected": false});
+          _connectionStateStreamController.sink.add("disconnected");
 
           // Cancel the subscription to stop listening
           connectionStateStreamSubscription?.cancel();
@@ -537,10 +698,7 @@ class BluetoothBloc {
 
   StreamSubscription<List<int>>? getBatteryLevelStreamSubscription() {
     return batteryLevelCharacteristic?.lastValueStream.listen((value) async {
-      var obj = {
-        "batteryLevel": value[0],
-      };
-      _batteryLevelStreamController.sink.add(obj);
+      _batteryLevelStreamController.sink.add(value[0]);
     });
   }
 
@@ -550,8 +708,43 @@ class BluetoothBloc {
         ByteData byteData = ByteData.sublistView(Uint8List.fromList(value));
         double temperature = byteData.getInt16(0, Endian.little) / 100.0;
 
-        var obj = {"temperature": temperature};
-        _temperatureStreamController.sink.add(obj);
+        _temperatureStreamController.sink.add(temperature);
+      }
+    });
+  }
+
+  StreamSubscription<List<int>>? getLevelingModeStreamSubscription() {
+    return levelingModeCharacteristic?.lastValueStream.listen((value) async {
+      if (value.length == 1) {
+        ByteData byteData = ByteData.sublistView(Uint8List.fromList(value));
+        int levelingMode = byteData.getUint8(0);
+
+        _levelingModeStreamController.sink.add(levelingMode);
+      }
+    });
+  }
+
+  StreamSubscription<List<int>>? getLengthAxisAdjustmentStreamSubscription() {
+    return lengthAxisAdjustmentCharacteristic?.lastValueStream.listen((value) {
+      if (value.length == 4) {
+        ByteData byteData = ByteData.sublistView(Uint8List.fromList(value));
+
+        double lengthAxisAdjustment = byteData.getFloat32(0, Endian.little);
+
+        _lengthAxisAdjustmentStreamController.sink.add(lengthAxisAdjustment);
+      }
+    });
+  }
+
+  StreamSubscription<List<int>>? getWidthAxisAdjustmentStreamSubscription() {
+    return widthAxisAdjustmentCharacteristic?.lastValueStream
+        .listen((value) async {
+      if (value.length == 4) {
+        ByteData byteData = ByteData.sublistView(Uint8List.fromList(value));
+
+        double widthAxisAdjustment = byteData.getFloat32(0, Endian.little);
+
+        _widthAxisAdjustmentStreamController.sink.add(widthAxisAdjustment);
       }
     });
   }
@@ -584,6 +777,14 @@ class BluetoothBloc {
 
   String? getBluetoothDeviceMACAddress() {
     return trailerLevelerDevice?.remoteId.toString();
+  }
+
+  void setBluetoothDeviceName(String name) {
+    _deviceNameStreamController.sink.add(name);
+  }
+
+  String? getBluetoothDeviceName() {
+    return trailerLevelerDevice?.platformName;
   }
 
   Future<void> doDeviceFirmwareUpdate(String filePath) async {
@@ -638,5 +839,11 @@ class BluetoothBloc {
     );
 
     await connectToDevice(null);
+  }
+
+  void allCharacteristicsLoaded() async {
+    int levelingMode = await getLevelingMode();
+    _levelingModeStreamController.sink.add(levelingMode);
+    print("leveling mode $levelingMode");
   }
 }
