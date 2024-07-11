@@ -13,6 +13,7 @@ import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:trailer_leveler_app/device_status.dart';
+import 'package:trailer_leveler_app/leveling_mode_selector.dart';
 import 'package:trailer_leveler_app/vehicle_angles.dart';
 
 import 'package:trailer_leveler_app/dfu_update_page.dart';
@@ -21,19 +22,6 @@ import 'package:trailer_leveler_app/settings_page.dart';
 
 import 'package:trailer_leveler_app/CircularBorder.dart';
 import 'package:trailer_leveler_app/FileStorage.dart';
-
-double savedheight = 0;
-
-enum LevelingMode {
-  LEVEL_TO_LEVEL,
-  LEVEL_TO_SAVED_HITCH_HEIGHT,
-}
-
-enum CONNECT_BUTTON_STATE {
-  CONNECTING_TO_DEVICE,
-  CONNECTED_TO_DEVICE,
-  DISCONNECTED_FROM_DEVICE
-}
 
 class AnglesPage extends StatefulWidget {
   const AnglesPage({Key? key}) : super(key: key);
@@ -76,12 +64,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
   bool recordData = false;
 
-  late Image camperRear;
-  late Image camperSide;
-
-  CONNECT_BUTTON_STATE connectButtonState =
-      CONNECT_BUTTON_STATE.DISCONNECTED_FROM_DEVICE;
-
   // save in the state for caching!
   late SharedPreferences _sharedPreferences;
 
@@ -92,12 +74,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     audioPlayer = AudioPlayer();
 
     listenToBluetoothBlocStreams();
-
-    camperRear = Image.asset("images/caravan_rear.png", width: 125);
-    camperSide = Image.asset(
-      "images/caravan_side.png",
-      width: 350,
-    );
     super.initState();
 
     // setup the shared prefrences and then get the length and width stored
@@ -109,9 +85,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
       }
 
       if (BluetoothBloc.instance.trailerLevelerDevice != null) {
-        setState(() {
-          connectButtonState = CONNECT_BUTTON_STATE.CONNECTING_TO_DEVICE;
-        });
+        setState(() {});
 
         BluetoothBloc.instance
             .connectToDevice(BluetoothBloc.instance.trailerLevelerDevice);
@@ -122,8 +96,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   /// Did Change Dependencies
   @override
   void didChangeDependencies() {
-    precacheImage(camperRear.image, context);
-    precacheImage(camperSide.image, context);
     super.didChangeDependencies();
   }
 
@@ -462,181 +434,64 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         Center(
           child: Column(
             children: [
-              DeviceStatus(
-                camperSide: const AssetImage(
-                  "images/caravan_side.png",
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      DeviceStatus(
+                        camperSide: const AssetImage(
+                          "images/caravan_side.png",
+                        ),
+                        connectionStateStream:
+                            BluetoothBloc.instance.connectionStateStream,
+                        batteryChargePercentageStream:
+                            BluetoothBloc.instance.batteryLevelStream,
+                        deviceNameStream:
+                            BluetoothBloc.instance.deviceNameStream,
+                        productID: BluetoothBloc.instance
+                                .getBluetoothDeviceMACAddress() ??
+                            "",
+                      ),
+                      VehicleAngle(
+                        camperSide: const AssetImage(
+                          "images/caravan_side.png",
+                        ),
+                        camperRear: AssetImage("images/caravan_rear.png"),
+                        xAngleStream: BluetoothBloc.instance.xAngleStream,
+                        yAngleStream: BluetoothBloc.instance.yAngleStream,
+                        lengthAxisAdjustmentAngleStream:
+                            BluetoothBloc.instance.lengthAxisAdjustmentStream,
+                        widthAxisAdjustmentAngleStream:
+                            BluetoothBloc.instance.widthAxisAdjustmentStream,
+                      ),
+                    ],
+                  ),
                 ),
-                connectionStateStream:
-                    BluetoothBloc.instance.connectionStateStream,
-                batteryChargePercentageStream:
-                    BluetoothBloc.instance.batteryLevelStream,
-                productID:
-                    BluetoothBloc.instance.getBluetoothDeviceMACAddress() ?? "",
               ),
-              VehicleAngle(
-                camperSide: const AssetImage(
-                  "images/caravan_side.png",
-                ),
-                camperRear: AssetImage("images/caravan_rear.png"),
-                caravanWidth: _caravanWidth,
-                caravanLength: _caravanLength,
-                xAngleStream: BluetoothBloc.instance.xAngleStream,
-                yAngleStream: BluetoothBloc.instance.yAngleStream,
+              LevelingModeSelector(
+                levelingModeStream: BluetoothBloc.instance.levelingModeStream,
+                deviceConnectionStream:
+                    BluetoothBloc.instance.connectionStateStream,
+                setLevelingModeCallback: (int mode) async {
+                  BluetoothBloc.instance.setLevelingMode(mode);
+                },
+                saveHitchHeightAngleCallback: () async {
+                  await BluetoothBloc.instance.setCalibration(2);
+                  print("Saving hitch height command sent");
+                },
+                connectButtonPressedCallback: _navigateToBluetoothDevicesPage,
               ),
             ],
           ),
         ),
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: Padding(
-              padding:
-                  const EdgeInsets.all(16.0), // Adjust the padding as needed
-              child: getConnectToDeviceWidget()),
-        ),
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: Padding(
-              padding:
-                  const EdgeInsets.all(16.0), // Adjust the padding as needed
-              child: toggleLevelingModeButtonWidget()),
-        ),
-        Positioned(
-          bottom: 60,
-          left: 0,
-          right: 0,
-          child: Padding(
-              padding:
-                  const EdgeInsets.all(16.0), // Adjust the padding as needed
-              child: getSaveHitchHeightWidget()),
-        )
       ],
     );
-  }
-
-  List<bool> isSelected = [
-    true,
-    false
-  ]; // Initialize based on currentLevelingMode value
-
-  List<Widget> _buildToggleButtons() {
-    return [
-      ElevatedButton(
-        onPressed: () {
-          setState(() {
-            isSelected = [true, false];
-            toggleLevelingMode();
-          });
-        },
-        style: ButtonStyle(
-          backgroundColor: MaterialStateProperty.all<Color>(
-            isSelected[0] ? Colors.green : Colors.grey,
-          ),
-        ),
-        child: const Text('Adjest to Level'),
-      ),
-      ElevatedButton(
-        onPressed: () {
-          setState(() {
-            isSelected = [false, true];
-          });
-          toggleLevelingMode();
-        },
-        style: ButtonStyle(
-          backgroundColor: MaterialStateProperty.all<Color>(
-            isSelected[1] ? Colors.green : Colors.grey,
-          ),
-        ),
-        child: const Text('Adjust to Saved Height'),
-      ),
-    ];
-  }
-
-  Widget toggleLevelingModeButtonWidget() {
-    return deviceConnected
-        ? Center(
-            child: ToggleButtons(
-              color: Colors.transparent,
-              selectedColor: Colors.transparent,
-              fillColor: Colors.transparent,
-              borderColor: Colors.transparent,
-              selectedBorderColor: Colors.transparent,
-              isSelected: isSelected,
-              onPressed: (int index) {
-                setState(() {
-                  isSelected =
-                      List.generate(isSelected.length, (i) => i == index);
-                  toggleLevelingMode();
-                });
-              },
-              children: _buildToggleButtons(),
-            ),
-          )
-        : const SizedBox();
-  }
-
-  Widget getSaveHitchHeightWidget() {
-    return deviceConnected
-        ? FilledButton(
-            onPressed: () async {
-              await _showSaveHitchHeightConfirmationDialog();
-            },
-            child: const Text('Save Hitch Height'),
-          )
-        : const SizedBox();
-  }
-
-  Future<void> toggleLevelingMode() async {
-    setState(() {
-      switch (currentLevelingMode) {
-        case LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT:
-          currentLevelingMode = LevelingMode.LEVEL_TO_LEVEL;
-          break;
-        default:
-          currentLevelingMode = LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT;
-      }
-    });
-
-    switch (currentLevelingMode) {
-      case LevelingMode.LEVEL_TO_SAVED_HITCH_HEIGHT:
-        //_savedHitchAngle = await BluetoothBloc.instance.getSavedHitchAngle();
-        break;
-      default:
-        {}
-    }
   }
 
   Future<void> saveHitchAngle() async {
     // sending 2 will set the device to save its hitch angle
     await BluetoothBloc.instance.setCalibration(2);
     //_savedHitchAngle = await BluetoothBloc.instance.getSavedHitchAngle();
-  }
-
-  Widget getConnectToDeviceWidget() {
-    switch (connectButtonState) {
-      case CONNECT_BUTTON_STATE.CONNECTED_TO_DEVICE:
-        {
-          return const SizedBox();
-        }
-      case CONNECT_BUTTON_STATE.DISCONNECTED_FROM_DEVICE:
-        {
-          return FilledButton(
-            onPressed: _navigateToBluetoothDevicesPage,
-            child: const Text('Connect to Device'),
-          );
-        }
-
-      case CONNECT_BUTTON_STATE.CONNECTING_TO_DEVICE:
-        {
-          return FilledButton(
-            onPressed: () {},
-            child: const Text('Connecting'),
-          );
-        }
-    }
   }
 
   Future<void> _showCalibrationDialog() async {
@@ -661,58 +516,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
                 if (deviceConnected) {
                   BluetoothBloc.instance.setCalibration(1);
                 }
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _showSaveHitchHeightConfirmationDialog() async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false, // user must tap button!
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(
-                Icons.warning,
-                color: Colors.orangeAccent,
-                size: 50,
-              ), // Warning icon
-              SizedBox(width: 8), // Add some spacing between the icon and text
-              Expanded(
-                child: Text(
-                  'This action will overwrite any previous height saved',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: const SingleChildScrollView(),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Overwrite previous height'),
-              onPressed: () async {
-                await saveHitchAngle();
-                Fluttertoast.showToast(
-                  msg: 'Hitch height saved',
-                  toastLength: Toast.LENGTH_SHORT,
-                  gravity: ToastGravity.BOTTOM,
-                  backgroundColor: Colors.grey,
-                  textColor: Colors.white,
-                  fontSize: 16.0,
-                );
-
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
@@ -877,13 +680,10 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   void listenToBluetoothBlocStreams() {
     BluetoothBloc.instance.connectionStateStream
         .listen((connectionState) async {
-      if (connectionState == true) {
-        connectButtonState = CONNECT_BUTTON_STATE.CONNECTED_TO_DEVICE;
+      if (connectionState == "connected") {
         deviceConnected = true;
         loopAudio();
-      } else {
-        connectButtonState = CONNECT_BUTTON_STATE.DISCONNECTED_FROM_DEVICE;
-
+      } else if (connectionState == 'disconnected') {
         deviceConnected = false;
 
         if (BluetoothBloc.instance.currentDFUUploadState !=

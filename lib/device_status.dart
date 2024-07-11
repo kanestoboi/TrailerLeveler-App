@@ -6,7 +6,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
 
 class DeviceStatus extends StatefulWidget {
-  final Stream<bool>? connectionStateStream;
+  final Stream<String>? connectionStateStream;
   final Stream<int>? batteryChargePercentageStream;
   final Stream<String>? productIDStream;
   final Stream<String>? deviceNameStream;
@@ -34,7 +34,7 @@ class _DeviceStatusState extends State<DeviceStatus> {
   String _productID = "";
   String _deviceName = "";
 
-  StreamSubscription<bool>? connectionStateStreamSubscription;
+  StreamSubscription<String>? connectionStateStreamSubscription;
   StreamSubscription<int>? batteryChargePercentageStreamSubscription;
   StreamSubscription<String>? productIDStreamSubscription;
   StreamSubscription<String>? deviceNameStreamSubscription;
@@ -108,11 +108,11 @@ class _DeviceStatusState extends State<DeviceStatus> {
                         ],
                       ),
                     )),
-                Expanded(
+                const Expanded(
                     flex: 2,
                     child: Text(
-                      _deviceName,
-                      style: const TextStyle(
+                      "Trailer Leveler",
+                      style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontFamily: 'Inter',
                           color: Color(0xFF2F2F2F),
@@ -232,24 +232,38 @@ class _DeviceStatusState extends State<DeviceStatus> {
   void initialiseStreamSubscriptions() {
     connectionStateStreamSubscription =
         widget.connectionStateStream?.listen((connectionStatus) {
-      _connectedStatus = connectionStatus;
+      if (connectionStatus == "connected") {
+        _connectedStatus = true;
+      } else {
+        _connectedStatus = false;
+      }
+
+      if (mounted) {
+        setState(() {});
+      }
     });
 
     batteryChargePercentageStreamSubscription =
         widget.batteryChargePercentageStream?.listen((batteryLevel) {
       _batteryChargePercentage = batteryLevel;
+      if (mounted) {
+        setState(() {});
+      }
     });
 
     productIDStreamSubscription = widget.productIDStream?.listen((productID) {
       _productID = productID;
+      if (mounted) {
+        setState(() {});
+      }
     });
 
     deviceNameStreamSubscription =
         widget.deviceNameStream?.listen((deviceName) {
       _deviceName = deviceName;
+      if (mounted) {
+        setState(() {});
+      }
     });
-    if (mounted) {
-      setState(() {});
-    }
   }
 }

@@ -7,9 +7,9 @@ import 'package:intl/intl.dart';
 class VehicleAngle extends StatefulWidget {
   final Stream<double>? xAngleStream;
   final Stream<double>? yAngleStream;
+  final Stream<double>? lengthAxisAdjustmentAngleStream;
+  final Stream<double>? widthAxisAdjustmentAngleStream;
 
-  final double caravanWidth;
-  final double caravanLength;
   final ImageProvider camperRear;
   final ImageProvider camperSide;
 
@@ -17,10 +17,10 @@ class VehicleAngle extends StatefulWidget {
     Key? super.key,
     this.xAngleStream,
     this.yAngleStream,
+    this.lengthAxisAdjustmentAngleStream,
+    this.widthAxisAdjustmentAngleStream,
     required this.camperSide,
     required this.camperRear,
-    required this.caravanWidth,
-    required this.caravanLength,
   });
 
   @override
@@ -30,6 +30,8 @@ class VehicleAngle extends StatefulWidget {
 class _VehicleAngleState extends State<VehicleAngle> {
   double _xAngle = 0;
   double _yAngle = 0;
+  double _lengthAxisAdjustment = 0;
+  double _widthAxisAdjustment = 0;
 
   String horizontalReference = 'right';
 
@@ -38,6 +40,8 @@ class _VehicleAngleState extends State<VehicleAngle> {
 
   StreamSubscription<double>? xAngleStreamSubscription;
   StreamSubscription<double>? yAngleStreamSubscription;
+  StreamSubscription<double>? lengthAxisAdjustmentStreamSubscription;
+  StreamSubscription<double>? widthAxisAdjustmentStreamSubscription;
 
   @override
   void dispose() {
@@ -59,7 +63,7 @@ class _VehicleAngleState extends State<VehicleAngle> {
               angle: pi / 180.0 * (_xAngle),
               child: Image(
                 image: widget.camperRear,
-                width: 125,
+                height: 115,
               ),
             ),
           )),
@@ -86,7 +90,10 @@ class _VehicleAngleState extends State<VehicleAngle> {
         child: Center(
           child: Transform.rotate(
             angle: getJockeyImageAngle(),
-            child: Image(image: widget.camperSide),
+            child: Image(
+              image: widget.camperSide,
+              height: 115,
+            ),
           ),
         ),
       ),
@@ -115,8 +122,7 @@ class _VehicleAngleState extends State<VehicleAngle> {
     String angleString;
     Color textColor = Colors.black54;
 
-    double adjustedAngle = (_xAngle);
-    double roundedAngle = (adjustedAngle / 0.05).round() * 0.05;
+    double roundedAngle = (_xAngle / 0.05).round() * 0.05;
 
     angleString = '${format.format(roundedAngle)}°';
 
@@ -156,9 +162,7 @@ class _VehicleAngleState extends State<VehicleAngle> {
     double height;
 
     if (horizontalReference == 'right') {
-      height = double.parse(
-          (tan((_xAngle) * pi / 180.0) * this.widget.caravanWidth)
-              .toStringAsFixed(3));
+      height = _widthAxisAdjustment;
     } else {
       height = 0.0;
     }
@@ -210,9 +214,7 @@ class _VehicleAngleState extends State<VehicleAngle> {
     double height;
 
     if (horizontalReference == 'left') {
-      height = double.parse(
-          (tan((_xAngle) * pi / 180.0) * this.widget.caravanWidth)
-              .toStringAsFixed(3));
+      height = _widthAxisAdjustment;
     } else {
       height = 0.0;
     }
@@ -270,14 +272,33 @@ class _VehicleAngleState extends State<VehicleAngle> {
   void initialiseStreamSubscriptions() {
     xAngleStreamSubscription = widget.xAngleStream?.listen((xangle) {
       _xAngle = xangle;
-    });
-    yAngleStreamSubscription = widget.yAngleStream?.listen((yangle) {
-      _yAngle = yangle;
+      if (mounted) {
+        setState(() {});
+      }
     });
 
-    if (mounted) {
-      setState(() {});
-    }
+    yAngleStreamSubscription = widget.yAngleStream?.listen((yangle) {
+      _yAngle = yangle;
+      if (mounted) {
+        setState(() {});
+      }
+    });
+
+    lengthAxisAdjustmentStreamSubscription =
+        widget.lengthAxisAdjustmentAngleStream?.listen((lengthAxisAdjustment) {
+      _lengthAxisAdjustment = lengthAxisAdjustment;
+      if (mounted) {
+        setState(() {});
+      }
+    });
+
+    widthAxisAdjustmentStreamSubscription =
+        widget.widthAxisAdjustmentAngleStream?.listen((widthAxisAdjustment) {
+      _widthAxisAdjustment = widthAxisAdjustment;
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   double getJockeyImageAngle() {
@@ -290,8 +311,7 @@ class _VehicleAngleState extends State<VehicleAngle> {
     Color textColor = Colors.red;
     var format = NumberFormat("##0.000", "en_US");
 
-    height = double.parse((tan((_yAngle) * pi / 180.0) * widget.caravanLength)
-        .toStringAsFixed(3));
+    height = _lengthAxisAdjustment;
 
     if (height > 0) {
       heightString = '$upArrow ${format.format(height.abs())}';
