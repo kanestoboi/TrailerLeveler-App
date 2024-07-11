@@ -248,7 +248,7 @@ class BluetoothBloc {
 
   Future<double> getVehicleWidth() async {
     double width = 1.0;
-    List<int>? widthByteData = await vehicleLengthCharacteristic?.read();
+    List<int>? widthByteData = await vehicleWidthCharacteristic?.read();
 
     if (widthByteData == null) {
       return width;
@@ -338,8 +338,6 @@ class BluetoothBloc {
 
     trailerLevelerDevice = device;
 
-    _connectionStateStreamController.sink.add("connected");
-
     await findDeviceServices(device);
 
     if (accelerometerService == null) {
@@ -387,6 +385,8 @@ class BluetoothBloc {
 
     batteryLevelCharacteristicStreamSubscription =
         getBatteryLevelStreamSubscription();
+
+    _connectionStateStreamController.sink.add("connected");
   }
 
   void dispose() {

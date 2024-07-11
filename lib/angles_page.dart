@@ -44,9 +44,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   List<AngleDataPoint> zAngleReadings = [];
   List<TemperatureDataPoint> temperatureReadings = [];
 
-  double _caravanWidth = 0.0001;
-  double _caravanLength = 0.0001;
-
   int minInterval = 2000; // Minimum interval in milliseconds
   int maxInterval = 5000; // Maximum interval in milliseconds
 
@@ -78,12 +75,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
 
     // setup the shared prefrences and then get the length and width stored
     setupSharedPreferences().then((value) {
-      if (_caravanWidth == 0.0001 && _caravanLength == 0.0001) {
-        _caravanWidth = 1.0;
-        _caravanLength = 1.0;
-        _showDimensionsDialog();
-      }
-
       if (BluetoothBloc.instance.trailerLevelerDevice != null) {
         setState(() {});
 
@@ -143,22 +134,8 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   Future<void> setupSharedPreferences() async {
     _sharedPreferences = await SharedPreferences.getInstance();
 
-    double? caravanWidthSharedPreferences =
-        _sharedPreferences.getDouble('caravanWidth');
-
-    double? caravanLengthSharedPreferences =
-        _sharedPreferences.getDouble('caravanLength');
-
     String? bluetoothDeviceMACSharedPreferences =
         _sharedPreferences.getString('bluetoothDeviceMAC');
-
-    if (caravanWidthSharedPreferences != null) {
-      _caravanWidth = caravanWidthSharedPreferences;
-    }
-
-    if (caravanLengthSharedPreferences != null) {
-      _caravanLength = caravanLengthSharedPreferences;
-    }
 
     if (bluetoothDeviceMACSharedPreferences != null) {
       BluetoothBloc.instance
@@ -529,8 +506,23 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     TextEditingController _caravanWidthController = TextEditingController();
     TextEditingController _caravanLengthController = TextEditingController();
 
-    _caravanWidthController.text = _caravanWidth.toString();
-    _caravanLengthController.text = _caravanLength.toString();
+    if (deviceConnected == false) {
+      Fluttertoast.showToast(
+        msg: 'Vehicle Dimensions can\'t be set without a device connected',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.grey,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+
+      return;
+    }
+
+    _caravanWidthController.text =
+        (await BluetoothBloc.instance.getVehicleWidth()).toString();
+    _caravanLengthController.text =
+        (await BluetoothBloc.instance.getVehicleLength()).toString();
 
     return showDialog<void>(
       context: context,
@@ -563,17 +555,11 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           actions: <Widget>[
             TextButton(
               child: const Text('OK'),
-              onPressed: () {
-                try {
-                  _caravanWidth = double.parse(_caravanWidthController.text);
-                  _caravanLength = double.parse(_caravanLengthController.text);
-                  _sharedPreferences.setDouble('caravanWidth', _caravanWidth);
-                  _sharedPreferences.setDouble('caravanLength', _caravanLength);
-                  debugPrint(
-                      "Set Length $_caravanLength \t width: $_caravanWidth");
-                } catch (e) {
-                  return;
-                }
+              onPressed: () async {
+                await BluetoothBloc.instance.setVehicleLength(
+                    double.parse(_caravanLengthController.text));
+                await BluetoothBloc.instance.setVehicleWidth(
+                    double.parse(_caravanWidthController.text));
 
                 Navigator.of(context).pop();
               },
@@ -682,6 +668,13 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
         .listen((connectionState) async {
       if (connectionState == "connected") {
         deviceConnected = true;
+        double vehicleWidth = await BluetoothBloc.instance.getVehicleWidth();
+        double vehicleLength = await BluetoothBloc.instance.getVehicleLength();
+
+        if (vehicleLength == 1.0 && vehicleWidth == 1.0) {
+          _showDimensionsDialog();
+        }
+
         loopAudio();
       } else if (connectionState == 'disconnected') {
         deviceConnected = false;
