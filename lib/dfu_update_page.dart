@@ -47,6 +47,7 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
   DFU_UPLOAD_STATE currentUploadState = DFU_UPLOAD_STATE.UPLOAD_NOT_STARTED;
 
   double dfuUploadProgress = 0.0;
+  double firmwareDownloadProgress = 0.0;
   bool dfuInProgress = false;
   bool dfuUploading = false;
 
@@ -120,6 +121,19 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                           fontSize: 18,
                           color: Colors.black54,
                         ),
+                      ),
+                    ),
+                  ),
+                  Visibility(
+                    visible: currentDownloadState !=
+                        DownloadState.DOWNLOAD_NOT_STARTED,
+                    child: Container(
+                      padding: const EdgeInsets.all(26),
+                      color: Colors.transparent,
+                      width: 400,
+                      child: LinearProgressIndicator(
+                        value: firmwareDownloadProgress,
+                        semanticsLabel: 'Linear progress indicator',
                       ),
                     ),
                   ),
@@ -199,7 +213,7 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
 
                     String? currentDeviceVersionNumber =
                         await BluetoothBloc.instance.getFirmwareVersion();
-
+/*
                     if (latestDeviceFirmwareVersion ==
                         "v$currentDeviceVersionNumber") {
                       debugPrint("Latest firmware virsion installed already");
@@ -220,7 +234,7 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
                             DFU_UPLOAD_STATE.UPLOAD_NOT_STARTED;
                       });
                       return;
-                    }
+                    }*/
 
                     String? link = await getLatestReleaseAssetLink();
 
@@ -355,14 +369,26 @@ class _DFUUpdatePageState extends State<DFUUpdatePage> {
     final tempDir = await getTemporaryDirectory();
     final tempFilePath = '${tempDir.path}/trailer_leveler_application.zip';
 
-    final response = await http.get(Uri.parse(assetLink));
+    final request = http.Request('GET', Uri.parse(assetLink));
+    final response = await request.send();
 
     if (response.statusCode == 200) {
       final file = File(tempFilePath);
-      await file.writeAsBytes(response.bodyBytes);
-      debugPrint("Download Completed");
-      // Delete the downloaded file after it's complete
+      final contentLength = response.contentLength ?? 0;
+      int bytesReceived = 0;
+
+      final sink = file.openWrite();
+      await for (var chunk in response.stream) {
+        bytesReceived += chunk.length;
+        sink.add(chunk);
+        firmwareDownloadProgress = (bytesReceived / contentLength) * 100;
+        debugPrint("Download Progress: $firmwareDownloadProgress");
+        setState(() {});
+      }
+
+      await sink.close();
       downloadedFile = File(tempFilePath);
+      debugPrint("Download Completed");
     }
 
     return downloadedFile;
