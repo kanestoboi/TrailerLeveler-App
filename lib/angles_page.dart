@@ -39,11 +39,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
   double _yAngle = 0.0;
   double _zAngle = 0.0;
 
-  List<AngleDataPoint> xAngleReadings = [];
-  List<AngleDataPoint> yAngleReadings = [];
-  List<AngleDataPoint> zAngleReadings = [];
-  List<TemperatureDataPoint> temperatureReadings = [];
-
   int minInterval = 2000; // Minimum interval in milliseconds
   int maxInterval = 5000; // Maximum interval in milliseconds
 
@@ -610,25 +605,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
     await BluetoothBloc.instance.setOrientation(selectedOrientation!);
   }
 
-  void recordDataCallback(bool ischecked) async {
-    if (ischecked) {
-      xAngleReadings = [];
-      yAngleReadings = [];
-      zAngleReadings = [];
-      temperatureReadings = [];
-      recordData = true;
-    }
-    if (!ischecked) {
-      await FileStorage.writeAngleDataPoints(xAngleReadings, "xAngleReadings");
-      await FileStorage.writeAngleDataPoints(yAngleReadings, "yAngleReadings");
-      await FileStorage.writeAngleDataPoints(zAngleReadings, "zAngleReadings");
-      await FileStorage.writeTemperatureDataPoints(
-          temperatureReadings, "temperatureReadings");
-    }
-    print(ischecked);
-    print("Record Data toggled");
-  }
-
   Future<void> _showSettingsDialog() async {
     return showDialog<void>(
       context: context,
@@ -639,7 +615,7 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
             widthFactor: 0.8,
             heightFactor: 0.6,
             child: SettingsPage(
-                recordDataCallback: recordDataCallback,
+                recordDataCallback: ((isChecked) {}),
                 isRecordingSwitchValue: recordData),
           );
         });
@@ -684,18 +660,6 @@ class PageState extends State<AnglesPage> with TickerProviderStateMixin {
           _showDisconnectedDialog();
         }
       }
-
-      setState(() {});
-    });
-
-    BluetoothBloc.instance.temperatureStream.listen((value) {
-      temperature = value;
-      if (recordData) {
-        temperatureReadings.add(TemperatureDataPoint(
-            DateTime.now().millisecondsSinceEpoch, temperature!));
-      }
-
-      print("Temperature $temperature");
 
       setState(() {});
     });
