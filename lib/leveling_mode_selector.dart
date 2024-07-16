@@ -205,7 +205,6 @@ class _LevelingModeSelectorState extends State<LevelingModeSelector> {
           return FilledButton(
             onPressed: () {
               widget.connectButtonPressedCallback();
-              connectButtonState = CONNECT_BUTTON_STATE.CONNECTING_TO_DEVICE;
               setState(() {});
             },
             child: const Text('Connect to Device'),

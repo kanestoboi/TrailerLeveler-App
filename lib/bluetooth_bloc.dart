@@ -787,6 +787,10 @@ class BluetoothBloc {
     return trailerLevelerDevice?.platformName;
   }
 
+  Future<bool> isBluetoothOn() async {
+    return await FlutterBluePlus.adapterState.first == BluetoothAdapterState.on;
+  }
+
   Future<void> doDeviceFirmwareUpdate(String filePath) async {
     if (trailerLevelerDevice == null) {
       currentDFUUploadState =
