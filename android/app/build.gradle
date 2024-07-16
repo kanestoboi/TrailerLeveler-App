@@ -54,6 +54,7 @@ android {
         applicationId "com.stoboi.trailer_leveler_app"
         minSdkVersion 21
         targetSdkVersion 34
+        compileSdkVersion 34
         versionCode 16
         versionName '0.6.2'
     }
