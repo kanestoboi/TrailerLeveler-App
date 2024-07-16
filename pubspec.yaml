@@ -47,6 +47,8 @@ dependencies:
   nordic_dfu: 6.0.1
   path_provider: ^2.0.2  
   flutter_svg: ^2.0.7
+  android_intent_plus: ^5.0.2
+  url_launcher: ^6.3.0
 
 
 dev_dependencies:
